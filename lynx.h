@@ -1,7 +1,7 @@
 #ifndef LYNX_H
 #define LYNX_H
 
-// Renamed to avoid Windows header conflicts
+// 1. Token Types
 typedef enum {
     TOKEN_SET, TOKEN_ROAR, TOKEN_HUNT, TOKEN_STALK_PACK, TOKEN_HELP,
     TOKEN_IDENTIFIER, TOKEN_STRING, TOKEN_NUMBER,
@@ -16,14 +16,26 @@ typedef struct {
     int line;
 } Token;
 
-// Scanner Functions
+// 2. Scanner State Structure
+// This needs to be here so main.c can create 'previousScanner'
+typedef struct {
+    const char* start;
+    const char* current;
+    int line;
+} Scanner;
+
+// 3. Global Scanner Declaration
+// 'extern' tells the compiler the actual variable lives in scanner.c
+extern Scanner scanner;
+
+// 4. Function Prototypes
 void initScanner(const char* source);
 Token scanToken();
-Token peekToken(); // Declared here so main.c can see it
+Token peekToken();
 
-// Parser & Memory Functions
 void parse_statement();
 void runFile(const char* path);
+
 void setVar(const char* name, double value);
 double getVar(const char* name);
 void hunt();
