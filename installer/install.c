@@ -20,7 +20,7 @@ int main() {
     sprintf(base, "%s\\LynxLang", getenv("APPDATA"));
     sprintf(std, "%s\\std", base);
 
-    // Create system directories
+    // Create system directories in AppData
     CreateDirectory(base, NULL);
     CreateDirectory(std, NULL);
 
@@ -29,17 +29,17 @@ int main() {
     sprintf(math_d, "%s\\math.lnx", std);
     sprintf(color_d, "%s\\colors.lnx", std);
 
-    // Update these to your exact URLs
+    // The links to your raw files and releases
     const char* u_exe = "https://github.com/justdev-chris/Lynx/releases/download/v1.3/lynx.exe";
     const char* u_math = "https://raw.githubusercontent.com/justdev-chris/Lynx/main/std/math.lnx";
     const char* u_color = "https://raw.githubusercontent.com/justdev-chris/Lynx/main/std/colors.lnx";
 
-    printf("📦 Downloading core components...\n");
+    printf("📦 Downloading core components to AppData...\n");
     download(u_exe, exe_d);
     download(u_math, math_d);
     download(u_color, color_d);
 
-    // Registry: Add to User PATH
+    // Registry: Add LynxLang to User PATH
     HKEY hKey;
     if (RegOpenKeyEx(HKEY_CURRENT_USER, "Environment", 0, KEY_ALL_ACCESS, &hKey) == ERROR_SUCCESS) {
         char path[8192] = {0};
@@ -51,7 +51,7 @@ int main() {
             strcat(path, base);
             RegSetValueEx(hKey, "Path", 0, REG_EXPAND_SZ, (LPBYTE)path, strlen(path) + 1);
             
-            // Broadcast change so CMD picks it up faster
+            // Broadcast change so current windows might see it
             SendMessageTimeout(HWND_BROADCAST, WM_SETTINGCHANGE, 0, (LPARAM)"Environment", SMTO_ABORTIFHUNG, 5000, NULL);
             printf("[+] Added Lynx to PATH.\n");
         }
@@ -59,9 +59,8 @@ int main() {
     }
 
     printf("\n✅ Installation/Update Complete!\n");
-    printf("Restart your CMD and type 'lynx --version' to check.\n");
+    printf("Restart your CMD and type 'lynx --version'\n");
     
-    // Keep window open so they can see success
     printf("\nPress Enter to exit...");
     getchar(); 
 
