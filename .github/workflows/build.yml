@@ -20,7 +20,7 @@ jobs:
         gcc main.c scanner.c parser.c memory.c -o lynx.exe
 
     - name: Test Lynx
-      run: echo "Set x = 10" | ./lynx
+      run: echo -e "Set stamina = 100\nSet damage = 20\nSet health = 100 - 5\nRoar stamina\nRoar damage\nRoar health" | ./lynx.exe
 
     - name: Upload Lynx Executable
       uses: actions/upload-artifact@v4
