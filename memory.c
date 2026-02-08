@@ -33,16 +33,27 @@ double pounce_get(const char* name) {
         if (strcmp(curr->name, name) == 0) return curr->value;
         curr = curr->next;
     }
-    return -1.0; // Return -1 to indicate not found
+    return 0;
 }
 
 void pounce_list() {
     Variable* curr = den;
-    printf("\n🐾 CURRENT DEN CONTENTS:\n");
-    if (!curr) printf("   (The Den is empty)\n");
+    printf("\n🐾 DEN CONTENTS:\n");
     while (curr) {
-        printf("   %-10s : %.2f\n", curr->name, curr->value);
+        printf("   %-12s : %.5f\n", curr->name, curr->value);
         curr = curr->next;
     }
     printf("\n");
+}
+
+void pounce_stash(const char* path) {
+    FILE* f = fopen(path, "w");
+    if (!f) return;
+    Variable* curr = den;
+    while (curr) {
+        fprintf(f, "Set %s = %f\n", curr->name, curr->value);
+        curr = curr->next;
+    }
+    fclose(f);
+    printf("🐾 Stashed to %s\n", path);
 }
