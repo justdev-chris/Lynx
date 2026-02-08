@@ -1,59 +1,40 @@
-#include <stdlib.h>
-#include <string.h>
 #include <stdio.h>
-#include "lynx.h"
+#include <string.h>
+#include <stdlib.h>
 
-typedef struct Variable {
-    char* name;
+typedef struct {
+    char name[64];
     double value;
-    struct Variable* next;
 } Variable;
 
-Variable* den = NULL;
+Variable den[100];
+int varCount = 0;
 
-void pounce_store(const char* name, double value) {
-    Variable* curr = den;
-    while (curr) {
-        if (strcmp(curr->name, name) == 0) {
-            curr->value = value;
+void setVar(const char* name, double val) {
+    for (int i = 0; i < varCount; i++) {
+        if (strcmp(den[i].name, name) == 0) {
+            den[i].value = val;
             return;
         }
-        curr = curr->next;
     }
-    Variable* new_v = malloc(sizeof(Variable));
-    new_v->name = _strdup(name);
-    new_v->value = value;
-    new_v->next = den;
-    den = new_v;
+    strcpy(den[varCount].name, name);
+    den[varCount++].value = val;
 }
 
-double pounce_get(const char* name) {
-    Variable* curr = den;
-    while (curr) {
-        if (strcmp(curr->name, name) == 0) return curr->value;
-        curr = curr->next;
+void hunt() {
+    printf("\n🐾 DEN CONTENTS (Sorted):\n");
+    // Simple Alpha Sort
+    for (int i = 0; i < varCount - 1; i++) {
+        for (int j = 0; j < varCount - i - 1; j++) {
+            if (strcmp(den[j].name, den[j+1].name) > 0) {
+                Variable temp = den[j];
+                den[j] = den[j+1];
+                den[j+1] = temp;
+            }
+        }
     }
-    return 0;
-}
-
-void pounce_list() {
-    Variable* curr = den;
-    printf("\n🐾 DEN CONTENTS:\n");
-    while (curr) {
-        printf("   %-12s : %.5f\n", curr->name, curr->value);
-        curr = curr->next;
+    for (int i = 0; i < varCount; i++) {
+        printf("   %-12s : %.5f\n", den[i].name, den[i].value);
     }
     printf("\n");
-}
-
-void pounce_stash(const char* path) {
-    FILE* f = fopen(path, "w");
-    if (!f) return;
-    Variable* curr = den;
-    while (curr) {
-        fprintf(f, "Set %s = %f\n", curr->name, curr->value);
-        curr = curr->next;
-    }
-    fclose(f);
-    printf("🐾 Stashed to %s\n", path);
 }
