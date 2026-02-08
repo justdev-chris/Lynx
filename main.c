@@ -3,9 +3,8 @@
 
 int main() {
     char line[1024];
-    printf("Lynx v1.0 - Ready to Hunt\n");
     while (1) {
-        printf("lynx > ");
+        if (isatty(0)) printf("lynx > "); // Only print prompt if interactive
         if (!fgets(line, sizeof(line), stdin)) break;
         initScanner(line);
         parse_statement();
