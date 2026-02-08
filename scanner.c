@@ -21,6 +21,12 @@ Token scanToken() {
     if (*current == '\0') return makeToken(TOKEN_EOF);
 
     char c = *current++;
+    
+    if (c == '"') { // String detection for paths
+        while (*current != '"' && *current != '\0') current++;
+        if (*current == '"') current++;
+        return makeToken(TOKEN_STRING);
+    }
     if (isdigit(c)) {
         while (isdigit(*current)) current++;
         return makeToken(TOKEN_NUMBER);
@@ -30,11 +36,19 @@ Token scanToken() {
         int len = (int)(current - start);
         if (strncmp(start, "Roar", len) == 0) return makeToken(TOKEN_ROAR);
         if (strncmp(start, "Set", len) == 0) return makeToken(TOKEN_SET);
+        if (strncmp(start, "Pounce", len) == 0) return makeToken(TOKEN_POUNCE);
+        if (strncmp(start, "Stalk_Pack", len) == 0) return makeToken(TOKEN_STALK_PACK);
+        if (strncmp(start, "Stalk", len) == 0) return makeToken(TOKEN_STALK);
         return makeToken(TOKEN_ID);
     }
     if (c == '=') return makeToken(TOKEN_EQUALS);
     if (c == '+') return makeToken(TOKEN_PLUS);
     if (c == '-') return makeToken(TOKEN_MINUS);
+    if (c == '*') return makeToken(TOKEN_STAR);
+    if (c == '/') return makeToken(TOKEN_SLASH);
+    if (c == '>') return makeToken(TOKEN_GREATER);
+    if (c == '<') return makeToken(TOKEN_LESS);
+
     return makeToken(TOKEN_ERROR);
 }
 
