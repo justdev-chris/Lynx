@@ -1,4 +1,4 @@
-name: Lynx Engine Windows Build
+name: Lynx  Build
 
 on: [push, pull_request]
 
@@ -7,17 +7,26 @@ jobs:
     runs-on: windows-latest
     steps:
     - uses: actions/checkout@v4
-    - name: Compile
+
+    - name: Compile Lynx
       run: gcc main.c scanner.c parser.c memory.c -o lynx.exe
-    - name: Test Module System
+
+    - name: Run Integration Test
       run: |
-        # Create a pack
-        "Set pi = 3.14" | Out-File -FilePath math_pack.lnx -Encoding ascii
-        # Run main script that imports it
-        "Stalk_Pack ""math_pack.lnx""
-        Roar pi" | ./lynx.exe
-    - name: Upload Binary
+        $testScript = @"
+        Stalk_Pack "math.lnx"
+        Set score = 10 + 5
+        Set multiplier = 2
+        Set total = score * multiplier
+        Roar total
+        Stash "savegame.lnx"
+        Hunt
+        Help
+        "@
+        $testScript | ./lynx.exe
+
+    - name: Upload Lynx Binary
       uses: actions/upload-artifact@v4
       with:
-        name: lynx-engine
+        name: lynx-v1.3-windows
         path: lynx.exe
