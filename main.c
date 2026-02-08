@@ -11,7 +11,7 @@
 
 void runFile(const char* path) {
     FILE* file = fopen(path, "rb");
-    if (!file) {
+    if (file == NULL) {
         char stdPath[512];
         snprintf(stdPath, sizeof(stdPath), "std/%s", path);
         file = fopen(stdPath, "rb");
@@ -38,7 +38,7 @@ int main(int argc, char* argv[]) {
         runFile(argv[1]);
     } else {
         char line[1024];
-        printf("Lynx Engine v1.2 | Type 'Help'\n");
+        printf("Lynx v1.3 \n");
         while (1) {
             if (isatty(0)) printf("lynx > ");
             if (!fgets(line, sizeof(line), stdin)) break;
