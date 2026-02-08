@@ -1,0 +1,22 @@
+Roar "--- Testing Set & Math ---"
+Set alpha = 100
+Set beta = 50.5
+Set gamma = 25
+Roar alpha
+Roar beta
+
+Roar "--- Testing the Den (Hunt) ---"
+Hunt
+
+Roar "--- Testing Strings ---"
+Roar "The Lynx is stalking the code..."
+Roar "UTF-8 Check: 🐾"
+
+Roar "--- Testing Stalk_Pack ---"
+Stalk_Pack "math.lnx"
+
+Roar "--- Final Hunt ---"
+Set test_complete = 1
+Hunt
+
+Roar "✅ Test Successful."
