@@ -1,6 +1,6 @@
 #include <string.h>
 #include <ctype.h>
-#include "lynx.h"
+#include "lynx.h" // This MUST be at the top
 
 typedef struct {
     const char* start;
@@ -20,20 +20,27 @@ static bool isAtEnd() { return *scanner.current == '\0'; }
 static char advance() { return *scanner.current++; }
 static char peek() { return *scanner.current; }
 
-static Token makeToken(TokenType type) {
-    Token token = {type, scanner.start, (int)(scanner.current - scanner.start), scanner.line};
+// FIX: Use LynxTokenType here
+static Token makeToken(LynxTokenType type) {
+    Token token;
+    token.type = type;
+    token.start = scanner.start;
+    token.length = (int)(scanner.current - scanner.start);
+    // token.line = scanner.line; // Add this back if you have 'line' in your Token struct
     return token;
 }
 
-static TokenType checkKeyword() {
+// FIX: Use LynxTokenType here
+static LynxTokenType checkKeyword() {
     int len = (int)(scanner.current - scanner.start);
     const char* s = scanner.start;
-    if (strncmp(s, "Set", len) == 0) return TOKEN_SET;
-    if (strncmp(s, "Roar", len) == 0) return TOKEN_ROAR;
-    if (strncmp(s, "Hunt", len) == 0) return TOKEN_HUNT;
-    if (strncmp(s, "Stash", len) == 0) return TOKEN_STASH;
-    if (strncmp(s, "Stalk_Pack", len) == 0) return TOKEN_STALK_PACK;
-    if (strncmp(s, "Help", len) == 0) return TOKEN_HELP;
+    
+    if (len == 3 && strncmp(s, "Set", 3) == 0) return TOKEN_SET;
+    if (len == 4 && strncmp(s, "Roar", 4) == 0) return TOKEN_ROAR;
+    if (len == 4 && strncmp(s, "Hunt", 4) == 0) return TOKEN_HUNT;
+    if (len == 5 && strncmp(s, "Stash", 5) == 0) return TOKEN_STASH;
+    if (len == 10 && strncmp(s, "Stalk_Pack", 10) == 0) return TOKEN_STALK_PACK;
+    
     return TOKEN_IDENTIFIER;
 }
 
@@ -52,12 +59,18 @@ static Token number() {
 }
 
 Token scanToken() {
-    while (isspace(peek())) { if (advance() == '\n') scanner.line++; }
+    // Skip whitespace
+    while (isspace(peek())) {
+        if (advance() == '\n') scanner.line++;
+    }
+
     scanner.start = scanner.current;
     if (isAtEnd()) return makeToken(TOKEN_EOF);
+
     char c = advance();
     if (isalpha(c) || c == '_') return identifier();
     if (isdigit(c)) return number();
+
     switch (c) {
         case '+': return makeToken(TOKEN_PLUS);
         case '-': return makeToken(TOKEN_MINUS);
@@ -66,8 +79,10 @@ Token scanToken() {
         case '=': return makeToken(TOKEN_EQUAL);
         case '"': {
             while (peek() != '"' && !isAtEnd()) advance();
-            advance(); return makeToken(TOKEN_STRING);
+            if (!isAtEnd()) advance(); // consume closing quote
+            return makeToken(TOKEN_STRING);
         }
     }
+
     return makeToken(TOKEN_ERROR);
 }
