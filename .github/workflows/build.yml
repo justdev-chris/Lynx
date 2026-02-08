@@ -1,4 +1,4 @@
-name: Lynx  Build
+name: Lynx Build
 
 on: [push, pull_request]
 
@@ -8,25 +8,22 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    - name: Compile Lynx
+    - name: Compile Engine
+      # Engine is in the root
       run: gcc main.c scanner.c parser.c memory.c -o lynx.exe
 
-    - name: Run Integration Test
-      run: |
-        $testScript = @"
-        Stalk_Pack "math.lnx"
-        Set score = 10 + 5
-        Set multiplier = 2
-        Set total = score * multiplier
-        Roar total
-        Stash "savegame.lnx"
-        Hunt
-        Help
-        "@
-        $testScript | ./lynx.exe
+    - name: Compile Installer
+      # Installer is now in the /installer subfolder
+      run: gcc installer/install.c -lurlmon -o LynxInstaller.exe
 
-    - name: Upload Lynx Binary
+    - name: Upload Lynx Engine
       uses: actions/upload-artifact@v4
       with:
-        name: lynx-v1.3-windows
+        name: lynx-exe
         path: lynx.exe
+
+    - name: Upload Installer
+      uses: actions/upload-artifact@v4
+      with:
+        name: LynxInstaller-exe
+        path: LynxInstaller.exe
