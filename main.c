@@ -10,6 +10,9 @@
 
 #define LYNX_VERSION "v1.3"
 
+// Access the global scanner defined in scanner.c
+extern Scanner scanner; 
+
 void show_help() {
     printf("\n🐾 LYNX COMMANDS:\n");
     printf("  Set x = 10         - Create/Update variable\n");
@@ -19,7 +22,8 @@ void show_help() {
     printf("  Help               - Show this menu\n");
     printf("  Exit               - Close Lynx\n");
     printf("  --version          - Show version\n");
-    printf("  --update           - Fetch newest LynxInstaller\n\n");
+    printf("  --update           - Fetch newest Lynx\n\n");
+    printf("  filename.lnx       - Another method to run a .lnx script\n\n");
 }
 
 void runFile(const char* path) {
@@ -31,7 +35,6 @@ void runFile(const char* path) {
     }
     cleanPath[j] = '\0';
 
-    // Try local first, then AppData std
     FILE* file = fopen(cleanPath, "rb");
     if (!file) {
         char stdPath[MAX_PATH];
@@ -53,20 +56,26 @@ void runFile(const char* path) {
         buf[size] = '\0';
         fclose(file);
 
+        // --- THE FIX: NESTED SCANNER STATE ---
+        Scanner previousScanner = scanner; 
+        
         initScanner(buf);
-        // Correct loop: check before parsing
         while (peekToken().type != TOKEN_EOF) {
             parse_statement(); 
         }
+
+        // Restore state so parent script can continue
+        scanner = previousScanner;
+        // -------------------------------------
+
         free(buf);
     }
 }
 
 int main(int argc, char* argv[]) {
-    SetConsoleOutputCP(65001); // UTF-8 fix
+    SetConsoleOutputCP(65001); // UTF-8 fix for the 🐾
 
     if (argc >= 2) {
-        // CLI Commands
         if (_stricmp(argv[1], "help") == 0 || _stricmp(argv[1], "--help") == 0) {
             show_help();
         } 
@@ -74,19 +83,16 @@ int main(int argc, char* argv[]) {
             printf("Lynx Engine %s\n", LYNX_VERSION);
         }
         else if (_stricmp(argv[1], "--update") == 0) {
-            printf("🔄 Preparing update sequence...\n");
+            printf("🔄 Preparing update...\n");
             char tempInstaller[MAX_PATH];
             sprintf(tempInstaller, "%s\\LynxInstaller.exe", getenv("TEMP"));
-
             const char* url = "https://github.com/justdev-chris/Lynx/releases/latest/download/LynxInstaller.exe";
             
-            printf("📥 Downloading newest LynxInstaller...\n");
             if (S_OK == URLDownloadToFileA(NULL, url, tempInstaller, 0, NULL)) {
-                printf("🚀 Launching Installer. Closing session...\n");
                 ShellExecuteA(NULL, "open", tempInstaller, NULL, NULL, SW_SHOWNORMAL);
                 exit(0); 
             } else {
-                printf("❌ Update failed: Could not reach GitHub.\n");
+                printf("❌ Update failed.\n");
             }
         }
         else {
@@ -95,7 +101,6 @@ int main(int argc, char* argv[]) {
         return 0;
     }
 
-    // REPL Mode
     char line[1024];
     printf("Lynx Engine %s | Type 'Help' for info\n", LYNX_VERSION);
     while (1) {
@@ -107,7 +112,6 @@ int main(int argc, char* argv[]) {
         if (_stricmp(line, "help") == 0) {
             show_help();
         } else if (_stricmp(line, "exit") == 0) {
-            printf("🐾 Leaving the den...\n");
             break;
         } else if (strstr(line, ".lnx") != NULL) {
             runFile(line);
