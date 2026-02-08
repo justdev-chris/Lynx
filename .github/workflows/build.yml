@@ -1,0 +1,29 @@
+name: Lynx Build
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    # Use Windows so we get a native .exe
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    - name: Compile Lynx
+      run: |
+        gcc main.c scanner.c parser.c memory.c -o lynx.exe
+
+    - name: Test Lynx
+      run: echo "Set x = 10" | ./lynx
+
+    - name: Upload Lynx Executable
+      uses: actions/upload-artifact@v4
+      with:
+        name: lynx-windows-binary
+        path: lynx.exe
