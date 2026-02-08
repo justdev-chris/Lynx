@@ -3,7 +3,7 @@
 
 int main() {
     char line[1024];
-    printf("Lynx Engine v1.0 - Ready to Hunt\n");
+    printf("Lynx v1.0 - Ready to Hunt\n");
     while (1) {
         printf("lynx > ");
         if (!fgets(line, sizeof(line), stdin)) break;
