@@ -1,78 +1,59 @@
-#include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
 #include "lynx.h"
 
-double get_value(Token t) {
-    if (t.type == TOKEN_NUMBER) return atof(t.start);
-    if (t.type == TOKEN_ID) {
-        char varName[32] = {0};
-        strncpy(varName, t.start, t.length);
-        return pounce_get(varName);
+double get_value() {
+    Token t = scanToken();
+    if (t.type == TOKEN_NUMBER) {
+        return atof(t.start);
+    }
+    if (t.type == TOKEN_IDENTIFIER) {
+        char name[64];
+        snprintf(name, t.length + 1, "%s", t.start);
+        return getVar(name); // Matches memory.c
     }
     return 0;
 }
 
 void parse_statement() {
     Token t = scanToken();
-    if (t.type == TOKEN_EOF) return;
 
-    if (t.type == TOKEN_ID) {
-        if (strncmp(t.start, "Help", t.length) == 0) {
-            printf("\n🐾 LYNX COMMANDS:\nSet x = 5 + 2\nRoar x\nHunt\nStash \"file.lnx\"\nStalk_Pack \"file.lnx\"\nHelp\n\n");
-            return;
+    if (t.type == TOKEN_HUNT) {
+        hunt();
+        return;
+    }
+
+    if (t.type == TOKEN_ROAR) {
+        Token val = scanToken();
+        if (val.type == TOKEN_STRING) {
+            // Print string without quotes
+            for(int i = 1; i < val.length - 1; i++) printf("%c", val.start[i]);
+            printf("\n");
+        } else if (val.type == TOKEN_IDENTIFIER) {
+            char name[64];
+            snprintf(name, val.length + 1, "%s", val.start);
+            printf("%.5f\n", getVar(name));
         }
-        if (strncmp(t.start, "Hunt", t.length) == 0) { pounce_list(); return; }
-        if (strncmp(t.start, "Stash", t.length) == 0) {
-            Token pathToken = scanToken();
-            char path[256] = {0};
-            strncpy(path, pathToken.start + 1, pathToken.length - 2);
-            pounce_stash(path);
-            return;
-        }
+        return;
     }
 
     if (t.type == TOKEN_SET) {
-        Token name = scanToken();
-        scanToken(); // consume '='
-        Token left = scanToken();
-        double finalVal = get_value(left);
+        Token nameToken = scanToken();
+        char varName[64];
+        snprintf(varName, nameToken.length + 1, "%s", nameToken.start);
 
-        Token op = peekToken();
-        if (op.type == TOKEN_PLUS || op.type == TOKEN_MINUS || op.type == TOKEN_STAR || op.type == TOKEN_SLASH) {
-            scanToken(); // consume the operator
-            Token right = scanToken();
-            double rightVal = get_value(right);
-            if (op.type == TOKEN_PLUS) finalVal += rightVal;
-            else if (op.type == TOKEN_MINUS) finalVal -= rightVal;
-            else if (op.type == TOKEN_STAR) finalVal *= rightVal;
-            else if (op.type == TOKEN_SLASH && rightVal != 0) finalVal /= rightVal;
-        }
-
-        char varName[32] = {0};
-        strncpy(varName, name.start, name.length);
-        pounce_store(varName, finalVal);
-    } 
-    else if (t.type == TOKEN_ROAR) {
-        Token name = scanToken();
-        char varName[32] = {0};
-        strncpy(varName, name.start, name.length);
-        double val = pounce_get(varName);
-
-        if ((val >= 30 && val <= 37) || val == 0) {
-            printf("\033[%dm", (int)val);
-        } else {
-            printf("%.5f\n", val);
-        }
+        scanToken(); // Skip '='
+        double val = get_value();
+        setVar(varName, val);
+        return;
     }
-    else if (t.type == TOKEN_STALK_PACK) {
+
+    if (t.type == TOKEN_STALK_PACK) {
         Token pathToken = scanToken();
-        char path[256] = {0};
-        if (pathToken.start[0] == '"') {
-            strncpy(path, pathToken.start + 1, pathToken.length - 2);
-        } else {
-            strncpy(path, pathToken.start, pathToken.length);
-        }
-        runFile(path);
+        char path[256];
+        snprintf(path, pathToken.length - 1, "%s", pathToken.start + 1);
+        runFile(path); // This is now declared in lynx.h
+        return;
     }
 }
