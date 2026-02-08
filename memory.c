@@ -1,6 +1,5 @@
 #include <stdlib.h>
 #include <string.h>
-#include <stdio.h>
 #include "lynx.h"
 
 typedef struct Variable {
@@ -17,11 +16,11 @@ void pounce_store(const char* name, double value) {
         if (strcmp(curr->name, name) == 0) { curr->value = value; return; }
         curr = curr->next;
     }
-    Variable* new_var = malloc(sizeof(Variable));
-    new_var->name = strdup(name);
-    new_var->value = value;
-    new_var->next = den;
-    den = new_var;
+    Variable* new_v = malloc(sizeof(Variable));
+    new_v->name = _strdup(name); // Windows uses _strdup
+    new_v->value = value;
+    new_v->next = den;
+    den = new_v;
 }
 
 double pounce_get(const char* name) {
