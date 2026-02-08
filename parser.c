@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include "lynx.h"
 
-// Helper to get values (Supports Numbers or Variables from the Den)
+// Helper to resolve numbers or variables
 double get_value() {
     Token t = scanToken();
     if (t.type == TOKEN_NUMBER) {
@@ -20,17 +20,16 @@ double get_value() {
 void parse_statement() {
     Token t = scanToken();
 
-    // 🐾 HUNT: Show all variables
+    // 🐾 HUNT: Variables list
     if (t.type == TOKEN_HUNT) {
         hunt();
         return;
     }
 
-    // 🐾 ROAR: Print logic
+    // 🐾 ROAR: Output logic
     if (t.type == TOKEN_ROAR) {
         Token val = scanToken();
         if (val.type == TOKEN_STRING) {
-            // Strip quotes and print
             for(int i = 1; i < val.length - 1; i++) printf("%c", val.start[i]);
             printf("\n");
         } else if (val.type == TOKEN_IDENTIFIER) {
@@ -43,7 +42,7 @@ void parse_statement() {
         return;
     }
 
-    // 🐾 SET: Assignment (Set x = 10)
+    // 🐾 SET: Assignments (Set x = 10)
     if (t.type == TOKEN_SET) {
         Token nameToken = scanToken();
         if (nameToken.type != TOKEN_IDENTIFIER) return;
@@ -59,18 +58,18 @@ void parse_statement() {
         return;
     }
 
-    // 🐾 STALK_PACK: Import logic
+    // 🐾 STALK_PACK: Recursive file loading
     if (t.type == TOKEN_STALK_PACK) {
         Token pathToken = scanToken();
         if (pathToken.type == TOKEN_STRING) {
             char path[256];
-            // Remove quotes for the file system
+            // Extract path from between quotes
             snprintf(path, pathToken.length - 1, "%s", pathToken.start + 1);
             runFile(path); 
         }
         return;
     }
 
-    // 🐾 HELP / EXIT: Handled primarily in main.c REPL loop
-    if (t.type == TOKEN_HELP) return;
+    // 🐾 HELP / EXIT / EOF
+    if (t.type == TOKEN_HELP || t.type == TOKEN_EOF) return;
 }
