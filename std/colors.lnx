@@ -1,0 +1,5 @@
+Set red = 31
+Set green = 32
+Set yellow = 33
+Set blue = 34
+Set reset = 0
