@@ -25,8 +25,7 @@ int main() {
     sprintf(math_d, "%s\\math.lnx", std);
     sprintf(color_d, "%s\\colors.lnx", std);
 
-    // Update [USER] and [REPO]
-    const char* u_exe = "https://github.com/justdev-chris/Lynx/releases/download/v1.3/LynxInstaller.exe";
+    const char* u_exe = "https://github.com/justdev-chris/Lynx/releases/download/v1.3/lynx.exe";
     const char* u_math = "https://raw.githubusercontent.com/justdev-chris/Lynx/main/std/math.lnx";
     const char* u_color = "https://raw.githubusercontent.com/justdev-chris/Lynx/main/std/colors.lnx";
 
