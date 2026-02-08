@@ -1,34 +1,23 @@
-name: Lynx Build
+name: Lynx Engine Windows Build
 
-on:
-  push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
+on: [push, pull_request]
 
 jobs:
   build:
     runs-on: windows-latest
-
     steps:
-    - name: Checkout Code
-      uses: actions/checkout@v4
-
-    - name: Compile Lynx
+    - uses: actions/checkout@v4
+    - name: Compile
+      run: gcc main.c scanner.c parser.c memory.c -o lynx.exe
+    - name: Test Module System
       run: |
-        gcc main.c scanner.c parser.c memory.c -o lynx.exe
-
-    - name: Test Dictionary and Functions
-      run: |
-        "Set stamina = 100
-        Set damage = 20
-        Set health = 80
-        Roar stamina
-        Roar damage
-        Roar health" | ./lynx.exe
-
-    - name: Upload Lynx Executable
+        # Create a pack
+        "Set pi = 3.14" | Out-File -FilePath math_pack.lnx -Encoding ascii
+        # Run main script that imports it
+        "Stalk_Pack ""math_pack.lnx""
+        Roar pi" | ./lynx.exe
+    - name: Upload Binary
       uses: actions/upload-artifact@v4
       with:
-        name: lynx-windows-binary
+        name: lynx-engine
         path: lynx.exe
