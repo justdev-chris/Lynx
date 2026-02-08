@@ -21,7 +21,7 @@ void pounce_store(const char* name, double value) {
         curr = curr->next;
     }
     Variable* new_v = malloc(sizeof(Variable));
-    new_v->name = _strdup(name); 
+    new_v->name = _strdup(name);
     new_v->value = value;
     new_v->next = den;
     den = new_v;
@@ -33,5 +33,16 @@ double pounce_get(const char* name) {
         if (strcmp(curr->name, name) == 0) return curr->value;
         curr = curr->next;
     }
-    return 0;
+    return -1.0; // Return -1 to indicate not found
+}
+
+void pounce_list() {
+    Variable* curr = den;
+    printf("\n🐾 CURRENT DEN CONTENTS:\n");
+    if (!curr) printf("   (The Den is empty)\n");
+    while (curr) {
+        printf("   %-10s : %.2f\n", curr->name, curr->value);
+        curr = curr->next;
+    }
+    printf("\n");
 }
