@@ -9,7 +9,7 @@ jobs:
     - uses: actions/checkout@v4
 
     - name: Compile Engine
-      run: gcc main.c scanner.c parser.c memory.c -o lynx.exe
+      run: gcc main.c scanner.c parser.c memory.c -o lynx.exe -lurlmon
 
     - name: Upload Engine Artifact
       uses: actions/upload-artifact@v4
