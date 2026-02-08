@@ -8,19 +8,13 @@ Lynx is a lightweight, animal-themed scripting engine built in C. It supports mo
 1. **Compile the engine:**
    ```
    gcc main.c scanner.c parser.c memory.c -o lynx.exe
-
-
-
 2. **Run a script:**
 ```
-./lynx.exe myscript.lnx
-
+lynx myscript.lnx
 ```
-
-
 3. **Enter Interactive Mode (REPL):**
 ```
-./lynx.exe
+lynx
 
 ```
 
