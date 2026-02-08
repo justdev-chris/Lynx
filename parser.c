@@ -4,9 +4,11 @@
 
 void parse_statement() {
     Token t = scanToken();
+    if (t.type == TOKEN_EOF) return;
+
     if (t.type == TOKEN_SET) {
         Token name = scanToken();
-        scanToken(); // Skip '='
+        scanToken(); // skip =
         Token val = scanToken();
         char varName[32] = {0};
         snprintf(varName, name.length + 1, "%s", name.start);
@@ -15,6 +17,6 @@ void parse_statement() {
         Token name = scanToken();
         char varName[32] = {0};
         snprintf(varName, name.length + 1, "%s", name.start);
-        printf("🐾 %.2f\n", pounce_get(varName));
+        printf("%.2f\n", pounce_get(varName));
     }
 }
