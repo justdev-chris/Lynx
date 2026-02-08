@@ -8,7 +8,6 @@ on:
 
 jobs:
   build:
-    # Use Windows so we get a native .exe
     runs-on: windows-latest
 
     steps:
@@ -19,8 +18,14 @@ jobs:
       run: |
         gcc main.c scanner.c parser.c memory.c -o lynx.exe
 
-    - name: Test Lynx
-      run: echo -e "Set stamina = 100\nSet damage = 20\nSet health = 100 - 5\nRoar stamina\nRoar damage\nRoar health" | ./lynx.exe
+    - name: Test Dictionary and Functions
+      run: |
+        "Set stamina = 100
+        Set damage = 20
+        Set health = 80
+        Roar stamina
+        Roar damage
+        Roar health" | ./lynx.exe
 
     - name: Upload Lynx Executable
       uses: actions/upload-artifact@v4
