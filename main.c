@@ -1,36 +1,41 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <windows.h>
 #include "lynx.h"
 
-// Unified help display
 void show_help() {
     printf("\n🐾 LYNX COMMANDS:\n");
-    printf("  Set x = 10         - Create a variable\n");
-    printf("  Roar x             - Print a variable\n");
-    printf("  Hunt               - List all variables\n");
-    printf("  Stash \"file.lnx\"   - Save state\n");
-    printf("  Stalk_Pack \"file\"  - Run a script\n");
+    printf("  Set x = 10         - Create/Update variable\n");
+    printf("  Roar x             - Print value\n");
+    printf("  Hunt               - Show sorted Den contents\n");
+    printf("  Stalk_Pack \"file\"  - Run a .lnx script\n");
     printf("  Help               - Show this menu\n\n");
 }
 
 void runFile(const char* path) {
-    FILE* file = fopen(path, "rb");
-    
-    // Check local directory, then check std/ folder
-    if (file == NULL) {
-        char stdPath[512];
-        snprintf(stdPath, sizeof(stdPath), "std/%s", path);
+    char cleanPath[MAX_PATH];
+    int j = 0;
+    for (int i = 0; path[i] != '\0'; i++) {
+        if (path[i] != '\"' && path[i] != '\r' && path[i] != '\n') 
+            cleanPath[j++] = path[i];
+    }
+    cleanPath[j] = '\0';
+
+    FILE* file = fopen(cleanPath, "rb");
+    if (!file) {
+        char stdPath[MAX_PATH];
+        snprintf(stdPath, sizeof(stdPath), "std/%s", cleanPath);
         file = fopen(stdPath, "rb");
     }
 
-    if (file == NULL) {
-        fprintf(stderr, "🐾 Lynx Error: Pack '%s' not found.\n", path);
+    if (!file) {
+        fprintf(stderr, "🐾 Lynx Error: Pack '%s' not found.\n", cleanPath);
         return;
     }
 
-    fseek(file, 0L, SEEK_END);
-    size_t size = ftell(file);
+    fseek(file, 0, SEEK_END);
+    long size = ftell(file);
     rewind(file);
     char* buf = malloc(size + 1);
     fread(buf, 1, size, file);
@@ -38,53 +43,38 @@ void runFile(const char* path) {
     fclose(file);
 
     initScanner(buf);
-    while (peekToken().type != TOKEN_EOF) {
-        parse_statement();
+    while (scanToken().type != TOKEN_EOF) {
+        // Your existing parser logic calls
+        parse_statement(); 
     }
     free(buf);
 }
 
 int main(int argc, char* argv[]) {
-    // MODE 1: Command Line Arguments
-    if (argc == 2) {
-        // Handle: lynx help
-        if (_stricmp(argv[1], "help") == 0 || _stricmp(argv[1], "--help") == 0) {
-            show_help();
-        } 
-        // Handle: lynx script.lnx
-        else {
-            runFile(argv[1]);
-        }
-        return 0;
-    } 
+    SetConsoleOutputCP(65001); // Fixes the ≡ƒÉ╛ symbols
 
-    // MODE 2: REPL (Interactive)
+    if (argc == 2) {
+        if (_stricmp(argv[1], "help") == 0) show_help();
+        else runFile(argv[1]);
+        return 0;
+    }
+
     char line[1024];
     printf("Lynx Engine v1.3 | Type 'Help' for info\n");
-
     while (1) {
         printf("lynx > ");
         if (!fgets(line, sizeof(line), stdin)) break;
-
-        // Remove trailing newline
         line[strcspn(line, "\n")] = 0;
         if (strlen(line) == 0) continue;
 
-        // REPL Shortcut: If user types "help"
         if (_stricmp(line, "help") == 0) {
             show_help();
-            continue;
-        }
-
-        // REPL Shortcut: If user types "anything.lnx", run it
-        if (strstr(line, ".lnx") != NULL && strchr(line, ' ') == NULL) {
+        } else if (strstr(line, ".lnx") != NULL) {
             runFile(line);
-            continue;
+        } else {
+            initScanner(line);
+            parse_statement();
         }
-
-        initScanner(line);
-        parse_statement();
     }
-    
     return 0;
 }
