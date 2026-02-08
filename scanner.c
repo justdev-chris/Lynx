@@ -1,6 +1,8 @@
+#include <stdio.h>
 #include <string.h>
 #include <ctype.h>
-#include "lynx.h" // This MUST be at the top
+#include <stdbool.h>
+#include "lynx.h"
 
 typedef struct {
     const char* start;
@@ -20,17 +22,15 @@ static bool isAtEnd() { return *scanner.current == '\0'; }
 static char advance() { return *scanner.current++; }
 static char peek() { return *scanner.current; }
 
-// FIX: Use LynxTokenType here
 static Token makeToken(LynxTokenType type) {
     Token token;
     token.type = type;
     token.start = scanner.start;
     token.length = (int)(scanner.current - scanner.start);
-    // token.line = scanner.line; // Add this back if you have 'line' in your Token struct
+    token.line = scanner.line;
     return token;
 }
 
-// FIX: Use LynxTokenType here
 static LynxTokenType checkKeyword() {
     int len = (int)(scanner.current - scanner.start);
     const char* s = scanner.start;
@@ -38,7 +38,7 @@ static LynxTokenType checkKeyword() {
     if (len == 3 && strncmp(s, "Set", 3) == 0) return TOKEN_SET;
     if (len == 4 && strncmp(s, "Roar", 4) == 0) return TOKEN_ROAR;
     if (len == 4 && strncmp(s, "Hunt", 4) == 0) return TOKEN_HUNT;
-    if (len == 5 && strncmp(s, "Stash", 5) == 0) return TOKEN_STASH;
+    if (len == 4 && strncmp(s, "Help", 4) == 0) return TOKEN_HELP;
     if (len == 10 && strncmp(s, "Stalk_Pack", 10) == 0) return TOKEN_STALK_PACK;
     
     return TOKEN_IDENTIFIER;
@@ -58,8 +58,15 @@ static Token number() {
     return makeToken(TOKEN_NUMBER);
 }
 
+// Public peekToken (Used by main.c and parser.c)
+Token peekToken() {
+    Scanner checkpoint = scanner;
+    Token token = scanToken();
+    scanner = checkpoint; // Restore position
+    return token;
+}
+
 Token scanToken() {
-    // Skip whitespace
     while (isspace(peek())) {
         if (advance() == '\n') scanner.line++;
     }
@@ -79,10 +86,9 @@ Token scanToken() {
         case '=': return makeToken(TOKEN_EQUAL);
         case '"': {
             while (peek() != '"' && !isAtEnd()) advance();
-            if (!isAtEnd()) advance(); // consume closing quote
+            if (!isAtEnd()) advance(); 
             return makeToken(TOKEN_STRING);
         }
     }
-
     return makeToken(TOKEN_ERROR);
 }
