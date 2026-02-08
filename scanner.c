@@ -11,10 +11,7 @@ void initScanner(const char* source) {
 }
 
 Token makeToken(TokenType type) {
-    Token token;
-    token.type = type;
-    token.start = start;
-    token.length = (int)(current - start);
+    Token token = {type, start, (int)(current - start)};
     return token;
 }
 
@@ -38,6 +35,14 @@ Token scanToken() {
     if (c == '=') return makeToken(TOKEN_EQUALS);
     if (c == '+') return makeToken(TOKEN_PLUS);
     if (c == '-') return makeToken(TOKEN_MINUS);
-
     return makeToken(TOKEN_ERROR);
+}
+
+Token peekToken() {
+    const char* old_start = start;
+    const char* old_current = current;
+    Token t = scanToken();
+    start = old_start;
+    current = old_current;
+    return t;
 }
