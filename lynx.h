@@ -4,8 +4,11 @@
 // 1. Token Types
 typedef enum {
     TOKEN_SET, TOKEN_ROAR, TOKEN_HUNT, TOKEN_STALK_PACK, TOKEN_HELP,
+    TOKEN_POUNCE, TOKEN_IF, TOKEN_ELSE,
     TOKEN_IDENTIFIER, TOKEN_STRING, TOKEN_NUMBER,
     TOKEN_EQUAL, TOKEN_PLUS, TOKEN_MINUS, TOKEN_STAR, TOKEN_SLASH,
+    TOKEN_EQ, TOKEN_NE, TOKEN_GT, TOKEN_LT, TOKEN_GE, TOKEN_LE,
+    TOKEN_LBRACE, TOKEN_RBRACE,
     TOKEN_EOF, TOKEN_ERROR
 } LynxTokenType;
 
@@ -17,7 +20,6 @@ typedef struct {
 } Token;
 
 // 2. Scanner State Structure
-// This needs to be here so main.c can create 'previousScanner'
 typedef struct {
     const char* start;
     const char* current;
@@ -25,7 +27,6 @@ typedef struct {
 } Scanner;
 
 // 3. Global Scanner Declaration
-// 'extern' tells the compiler the actual variable lives in scanner.c
 extern Scanner scanner;
 
 // 4. Function Prototypes
@@ -34,10 +35,14 @@ Token scanToken();
 Token peekToken();
 
 void parse_statement();
+void parse_block();
+double parse_expression();
+int check_condition();
 void runFile(const char* path);
 
 void setVar(const char* name, double value);
 double getVar(const char* name);
+void pounce(const char* name);
 void hunt();
 
 #endif
