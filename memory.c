@@ -29,6 +29,20 @@ double getVar(const char* name) {
     return 0;
 }
 
+void pounce(const char* name) {
+    for (int i = 0; i < varCount; i++) {
+        if (strcmp(den[i].name, name) == 0) {
+            for (int j = i; j < varCount - 1; j++) {
+                den[j] = den[j + 1];
+            }
+            varCount--;
+            printf("🐾 Pounced %s\n", name);
+            return;
+        }
+    }
+    printf("🐾 %s not found in den\n", name);
+}
+
 void hunt() {
     printf("\n🐾 DEN CONTENTS:\n");
     for (int i = 0; i < varCount; i++) {
