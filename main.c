@@ -8,7 +8,7 @@
 
 #pragma comment(lib, "urlmon.lib")
 
-#define LYNX_VERSION "v1.3"
+#define LYNX_VERSION "v1.4"
 
 // Access the global scanner defined in scanner.c
 extern Scanner scanner; 
@@ -17,7 +17,9 @@ void show_help() {
     printf("\n🐾 LYNX COMMANDS:\n");
     printf("  Set x = 10         - Create/Update variable\n");
     printf("  Roar x             - Print value\n");
-    printf("  Hunt               - Show sorted Den contents\n");
+    printf("  Hunt               - Show Den contents\n");
+    printf("  Pounce x           - Delete variable x\n");
+    printf("  If x > 5 { ... }   - Conditional execution\n");
     printf("  Stalk_Pack \"file\"  - Run a .lnx script\n");
     printf("  Help               - Show this menu\n");
     printf("  Exit               - Close Lynx\n");
@@ -28,12 +30,15 @@ void show_help() {
 
 void runFile(const char* path) {
     char cleanPath[MAX_PATH];
-    int j = 0;
-    for (int i = 0; path[i] != '\0'; i++) {
-        if (path[i] != '\"' && path[i] != '\r' && path[i] != '\n') 
-            cleanPath[j++] = path[i];
+    
+    // Clean quotes from path
+    if (path[0] == '"') {
+        int len = strlen(path) - 2;
+        strncpy(cleanPath, path + 1, len);
+        cleanPath[len] = '\0';
+    } else {
+        strcpy(cleanPath, path);
     }
-    cleanPath[j] = '\0';
 
     FILE* file = fopen(cleanPath, "rb");
     if (!file) {
@@ -56,7 +61,7 @@ void runFile(const char* path) {
         buf[size] = '\0';
         fclose(file);
 
-        // --- THE FIX: NESTED SCANNER STATE ---
+        // Save current scanner state
         Scanner previousScanner = scanner; 
         
         initScanner(buf);
@@ -64,9 +69,8 @@ void runFile(const char* path) {
             parse_statement(); 
         }
 
-        // Restore state so parent script can continue
+        // Restore state
         scanner = previousScanner;
-        // -------------------------------------
 
         free(buf);
     }
