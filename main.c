@@ -8,7 +8,7 @@
 
 #pragma comment(lib, "urlmon.lib")
 
-#define LYNX_VERSION "v1.4"
+#define LYNX_VERSION "v1.3.2"
 
 // Access the global scanner defined in scanner.c
 extern Scanner scanner; 
