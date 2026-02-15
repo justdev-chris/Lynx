@@ -8,7 +8,7 @@
 
 #pragma comment(lib, "urlmon.lib")
 
-#define LYNX_VERSION "v1.3.2"
+#define LYNX_VERSION "v1.4"
 
 // Access the global scanner defined in scanner.c
 extern Scanner scanner; 
@@ -20,6 +20,7 @@ void show_help() {
     printf("  Hunt               - Show Den contents\n");
     printf("  Pounce x           - Delete variable x\n");
     printf("  If x > 5 { ... }   - Conditional execution\n");
+    printf("  LoadLib \"name\"     - Load C DLL from ./lib/\n");
     printf("  Stalk_Pack \"file\"  - Run a .lnx script\n");
     printf("  Help               - Show this menu\n");
     printf("  Exit               - Close Lynx\n");
@@ -102,6 +103,9 @@ int main(int argc, char* argv[]) {
         else {
             runFile(argv[1]);
         }
+        
+        // Clean up loaded libraries
+        unload_all_libs();
         return 0;
     }
 
@@ -124,5 +128,8 @@ int main(int argc, char* argv[]) {
             parse_statement();
         }
     }
+    
+    // Clean up loaded libraries
+    unload_all_libs();
     return 0;
 }
