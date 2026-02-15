@@ -33,7 +33,6 @@ void load_lib(const char* lib_name) {
     }
 }
 
-// Call this when exiting to clean up
 void unload_all_libs() {
     for (int i = 0; i < lib_count; i++) {
         FreeLibrary(loaded_libs[i].handle);
