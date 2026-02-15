@@ -16,18 +16,20 @@ int main() {
     printf("🐾 Lynx Language: Global Installer\n");
     printf("----------------------------------\n");
 
-    char base[MAX_PATH], std[MAX_PATH];
+    char base[MAX_PATH], std[MAX_PATH], lib[MAX_PATH];
     sprintf(base, "%s\\LynxLang", getenv("APPDATA"));
     sprintf(std, "%s\\std", base);
+    sprintf(lib, "%s\\lib", base); // Define the /lib path
 
     // Create system directories in AppData
     CreateDirectory(base, NULL);
     CreateDirectory(std, NULL);
+    CreateDirectory(lib, NULL); // Create the /lib directory
 
     char exe_d[MAX_PATH], math_d[MAX_PATH], color_d[MAX_PATH];
     sprintf(exe_d, "%s\\lynx.exe", base);
-    sprintf(math_d, "%s\\math.lnx", std);
-    sprintf(color_d, "%s\\colors.lnx", std);
+    sprintf(math_d, "%s\\std\\math.lnx", base);
+    sprintf(color_d, "%s\\std\\colors.lnx", base);
 
     // The links to your raw files and releases
     const char* u_exe = "https://github.com/justdev-chris/Lynx/releases/download/v1.3/lynx.exe";
@@ -49,7 +51,7 @@ int main() {
         if (strstr(path, base) == NULL) {
             strcat(path, ";");
             strcat(path, base);
-            RegSetValueEx(hKey, "Path", 0, REG_EXPAND_SZ, (LPBYTE)path, strlen(path) + 1);
+            RegSetValueEx(hKey, "Path", 0, REG_EXPAND_SZ, (LPBYTE)path, (DWORD)strlen(path) + 1);
             
             // Broadcast change so current windows might see it
             SendMessageTimeout(HWND_BROADCAST, WM_SETTINGCHANGE, 0, (LPARAM)"Environment", SMTO_ABORTIFHUNG, 5000, NULL);
