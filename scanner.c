@@ -45,6 +45,7 @@ static LynxTokenType checkKeyword() {
     if (len == 6 && strncmp(s, "Pounce", 6) == 0) return TOKEN_POUNCE;
     if (len == 2 && strncmp(s, "If", 2) == 0) return TOKEN_IF;
     if (len == 4 && strncmp(s, "Else", 4) == 0) return TOKEN_ELSE;
+    if (len == 7 && strncmp(s, "LoadLib", 7) == 0) return TOKEN_LOAD_LIB;
     
     return TOKEN_IDENTIFIER;
 }
