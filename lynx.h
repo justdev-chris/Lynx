@@ -4,7 +4,7 @@
 // 1. Token Types
 typedef enum {
     TOKEN_SET, TOKEN_ROAR, TOKEN_HUNT, TOKEN_STALK_PACK, TOKEN_HELP,
-    TOKEN_POUNCE, TOKEN_IF, TOKEN_ELSE,
+    TOKEN_POUNCE, TOKEN_IF, TOKEN_ELSE, TOKEN_LOAD_LIB,
     TOKEN_IDENTIFIER, TOKEN_STRING, TOKEN_NUMBER,
     TOKEN_EQUAL, TOKEN_PLUS, TOKEN_MINUS, TOKEN_STAR, TOKEN_SLASH,
     TOKEN_EQ, TOKEN_NE, TOKEN_GT, TOKEN_LT, TOKEN_GE, TOKEN_LE,
@@ -44,5 +44,9 @@ void setVar(const char* name, double value);
 double getVar(const char* name);
 void pounce(const char* name);
 void hunt();
+
+// Library loading
+void load_lib(const char* lib_name);
+void unload_all_libs();
 
 #endif
