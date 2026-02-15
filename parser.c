@@ -140,6 +140,16 @@ void parse_statement() {
         return;
     }
 
+    if (t.type == TOKEN_LOAD_LIB) {
+        Token libToken = scanToken();
+        if (libToken.type == TOKEN_STRING) {
+            char libName[64];
+            snprintf(libName, libToken.length - 1, "%s", libToken.start + 1);
+            load_lib(libName);
+        }
+        return;
+    }
+
     if (t.type == TOKEN_IF) {
         int condition = check_condition();
         
