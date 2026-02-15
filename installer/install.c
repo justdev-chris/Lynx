@@ -32,7 +32,7 @@ int main() {
     sprintf(color_d, "%s\\std\\colors.lnx", base);
 
     // The links to your raw files and releases
-    const char* u_exe = "https://github.com/justdev-chris/Lynx/releases/download/v1.3/lynx.exe";
+    const char* u_exe = "https://github.com/justdev-chris/Lynx/releases/download/v1.3.2/lynx.exe";
     const char* u_math = "https://raw.githubusercontent.com/justdev-chris/Lynx/main/std/math.lnx";
     const char* u_color = "https://raw.githubusercontent.com/justdev-chris/Lynx/main/std/colors.lnx";
 
