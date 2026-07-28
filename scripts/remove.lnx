@@ -7,15 +7,17 @@ Set found = 0
 Set new_content = ""
 KittySplitString content "\n"
 Set lines_count = __result_count
+Set i = 0
 
-For i = 0 To lines_count - 1 {
+While i < lines_count {
     Set line = __result[i]
     KittyCheckIfStringContains line (__pkg + " = ")
-    If __result == 1 {
+    If __result == 0 {
+        Set new_content = new_content + line + "\n"
+    } Else {
         Set found = 1
-        Continue
     }
-    Set new_content = new_content + line + "\n"
+    Set i = i + 1
 }
 
 If found == 0 {
@@ -32,13 +34,15 @@ If __result == 1 {
     Set newLock = ""
     KittySplitString lockContent "\n"
     Set lock_lines_count = __result_count
-    For i = 0 To lock_lines_count - 1 {
-        Set line = __result[i]
+    Set j = 0
+    
+    While j < lock_lines_count {
+        Set line = __result[j]
         KittyCheckIfStringContains line (__pkg + " = ")
-        If __result == 1 {
-            Continue
+        If __result == 0 {
+            Set newLock = newLock + line + "\n"
         }
-        Set newLock = newLock + line + "\n"
+        Set j = j + 1
     }
     KittyWriteFile "lynx.lock" newLock
 }
