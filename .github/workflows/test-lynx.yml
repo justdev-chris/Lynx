@@ -51,7 +51,7 @@ jobs:
           Write-Host "=== TESTING LYNX ===" -ForegroundColor Cyan
           & $lynx --version
           & $lynx help
-          & $lynx init
+          & $lynx init testproject testname
           & $lynx add meowsys
           & $lynx install
           & $lynx build
