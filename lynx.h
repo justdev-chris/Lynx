@@ -147,6 +147,7 @@ extern Variable den[];
 extern int varCount;
 extern LynxError lynx_error_state;
 extern TryState try_state;
+extern int preserve_vars;  // <-- ADDED
 
 // ─── FUNCTIONS ──────────────────────────────────────────────────
 void initScanner(const char* source);
