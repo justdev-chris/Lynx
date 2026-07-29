@@ -12,6 +12,7 @@ LynxError lynx_error_state = {0};
 #define MAX_VARS 1000
 #define MAX_FUNCS 200
 #define MAX_RECURSION 100
+#define VAR_NAME_MAX 63
 
 // ─── VARIABLE STORAGE ────────────────────────────────────────────
 Variable den[MAX_VARS];
@@ -41,6 +42,7 @@ char* getError() {
 
 // ─── VARIABLE MANAGEMENT ────────────────────────────────────────
 Variable* findVar(const char* name) {
+    if (!name) return NULL;
     for (int i = 0; i < varCount; i++) {
         if (strcmp(den[i].name, name) == 0) return &den[i];
     }
@@ -48,6 +50,11 @@ Variable* findVar(const char* name) {
 }
 
 void setVar(const char* name, double val) {
+    if (!name || strlen(name) > VAR_NAME_MAX) {
+        printf("🐾 ERROR: Invalid variable name\n");
+        return;
+    }
+    
     Variable* v = findVar(name);
     if (v) {
         if (v->type == VAR_ARRAY) {
@@ -77,7 +84,8 @@ void setVar(const char* name, double val) {
     }
     
     if (varCount < MAX_VARS) {
-        strcpy(den[varCount].name, name);
+        strncpy(den[varCount].name, name, VAR_NAME_MAX);
+        den[varCount].name[VAR_NAME_MAX] = '\0';
         den[varCount].type = VAR_NUMBER;
         den[varCount].value.numValue = val;
         den[varCount].value.strValue = NULL;
@@ -85,12 +93,14 @@ void setVar(const char* name, double val) {
         den[varCount].array_length = 0;
         den[varCount].array_capacity = 0;
         varCount++;
+    } else {
+        printf("🐾 ERROR: Max variables (%d) exceeded\n", MAX_VARS);
     }
 }
 
 void setVarString(const char* name, const char* value) {
-    if (!value) {
-        printf("🐾 ERROR: setVarString called with NULL value for '%s'\n", name);
+    if (!name || !value || strlen(name) > VAR_NAME_MAX) {
+        printf("🐾 ERROR: setVarString called with invalid arguments\n");
         return;
     }
     
@@ -110,14 +120,18 @@ void setVarString(const char* name, const char* value) {
             free(v->value.array);
             v->value.array = NULL;
         }
-        if (v->value.strValue) {
+        if (v->type == VAR_STRING && v->value.strValue) {
             free(v->value.strValue);
-            v->value.strValue = NULL;
         }
-        v->type = VAR_STRING;
+        
         v->value.strValue = malloc(strlen(value) + 1);
         if (v->value.strValue) {
             strcpy(v->value.strValue, value);
+            v->type = VAR_STRING;
+        } else {
+            printf("🐾 ERROR: Out of memory for string\n");
+            v->type = VAR_STRING;
+            v->value.strValue = NULL;
         }
         v->array_length = 0;
         v->array_capacity = 0;
@@ -126,218 +140,243 @@ void setVarString(const char* name, const char* value) {
     }
     
     if (varCount < MAX_VARS) {
-        strcpy(den[varCount].name, name);
+        strncpy(den[varCount].name, name, VAR_NAME_MAX);
+        den[varCount].name[VAR_NAME_MAX] = '\0';
         den[varCount].type = VAR_STRING;
         den[varCount].value.strValue = malloc(strlen(value) + 1);
         if (den[varCount].value.strValue) {
             strcpy(den[varCount].value.strValue, value);
+        } else {
+            printf("🐾 ERROR: Out of memory for string\n");
+            den[varCount].value.strValue = NULL;
         }
         den[varCount].value.array = NULL;
         den[varCount].array_length = 0;
         den[varCount].array_capacity = 0;
         varCount++;
     } else {
-        printf("🐾 ERROR: varCount (%d) >= MAX_VARS (%d)\n", varCount, MAX_VARS);
+        printf("🐾 ERROR: Max variables (%d) exceeded\n", MAX_VARS);
     }
 }
 
 double getVar(const char* name) {
+    if (!name) return 0;
     Variable* v = findVar(name);
-    if (!v) {
-        return 0;
-    }
-    if (v->type == VAR_NUMBER) return v->value.numValue;
-    if (v->type == VAR_STRING) return 0;
+    if (v && v->type == VAR_NUMBER) return v->value.numValue;
     return 0;
 }
 
 char* getVarString(const char* name) {
+    if (!name) return "";
     Variable* v = findVar(name);
-    if (!v) {
-        return "";
-    }
-    if (v->type == VAR_STRING) {
-        return v->value.strValue ? v->value.strValue : "";
-    }
+    if (v && v->type == VAR_STRING && v->value.strValue) return v->value.strValue;
     return "";
 }
 
-// ─── ARRAY FUNCTIONS ────────────────────────────────────────────
 void setArrayElement(const char* name, int index, double value) {
+    if (!name || index < 0) return;
+    
     Variable* v = findVar(name);
     if (!v) {
-        return;
-    }
-    
-    if (v->type != VAR_ARRAY) {
-        if (v->type == VAR_NUMBER && v->value.numValue == 0 && !v->value.strValue) {
-            v->type = VAR_ARRAY;
-            v->value.array = NULL;
-            v->array_length = 0;
-            v->array_capacity = 0;
+        if (varCount < MAX_VARS) {
+            strncpy(den[varCount].name, name, VAR_NAME_MAX);
+            den[varCount].name[VAR_NAME_MAX] = '\0';
+            den[varCount].type = VAR_ARRAY;
+            den[varCount].array_capacity = (index + 1) * 2;
+            den[varCount].value.array = malloc(den[varCount].array_capacity * sizeof(Variable*));
+            if (!den[varCount].value.array) {
+                printf("🐾 ERROR: Out of memory for array\n");
+                return;
+            }
+            for (int i = 0; i < den[varCount].array_capacity; i++) {
+                den[varCount].value.array[i] = NULL;
+            }
+            v = &den[varCount];
+            varCount++;
         } else {
+            printf("🐾 ERROR: Max variables exceeded\n");
             return;
         }
     }
     
-    if (index < 0) return;
-    
-    if (index >= v->array_capacity) {
-        int new_cap = index + 10;
-        v->value.array = realloc(v->value.array, new_cap * sizeof(Variable*));
-        for (int i = v->array_capacity; i < new_cap; i++) {
-            v->value.array[i] = NULL;
-        }
-        v->array_capacity = new_cap;
+    if (v->type != VAR_ARRAY) {
+        printf("🐾 ERROR: Variable is not an array\n");
+        return;
     }
     
-    if (v->value.array[index] == NULL) {
-        v->value.array[index] = calloc(1, sizeof(Variable));
-        v->array_length++;
+    if (index >= v->array_capacity) {
+        int newCapacity = (index + 1) * 2;
+        Variable** newArray = realloc(v->value.array, newCapacity * sizeof(Variable*));
+        if (!newArray) {
+            printf("🐾 ERROR: Out of memory expanding array\n");
+            return;
+        }
+        for (int i = v->array_capacity; i < newCapacity; i++) {
+            newArray[i] = NULL;
+        }
+        v->value.array = newArray;
+        v->array_capacity = newCapacity;
+    }
+    
+    if (!v->value.array[index]) {
+        v->value.array[index] = malloc(sizeof(Variable));
+        if (!v->value.array[index]) {
+            printf("🐾 ERROR: Out of memory for array element\n");
+            return;
+        }
+        v->value.array[index]->type = VAR_NUMBER;
+        v->value.array[index]->value.numValue = 0;
+        v->value.array[index]->value.strValue = NULL;
     }
     
     v->value.array[index]->type = VAR_NUMBER;
     v->value.array[index]->value.numValue = value;
-}
-
-double getArrayElement(const char* name, int index) {
-    Variable* v = findVar(name);
-    if (!v) return 0;
-    
-    if (v->type != VAR_ARRAY) return 0;
-    
-    if (index < 0 || index >= v->array_capacity || v->value.array[index] == NULL) {
-        return 0;
-    }
-    
-    return v->value.array[index]->value.numValue;
-}
-
-int getArrayLength(const char* name) {
-    Variable* v = findVar(name);
-    if (!v) return 0;
-    
-    if (v->type != VAR_ARRAY) return 0;
-    
-    return v->array_length;
-}
-
-void setArrayStringElement(const char* name, int index, const char* value) {
-    Variable* v = findVar(name);
-    if (!v) return;
-    
-    if (v->type != VAR_ARRAY) {
-        if (v->type == VAR_NUMBER && v->value.numValue == 0 && !v->value.strValue) {
-            v->type = VAR_ARRAY;
-            v->value.array = NULL;
-            v->array_length = 0;
-            v->array_capacity = 0;
-        } else {
-            return;
-        }
-    }
-    
-    if (index < 0) return;
-    
-    if (index >= v->array_capacity) {
-        int new_cap = index + 10;
-        v->value.array = realloc(v->value.array, new_cap * sizeof(Variable*));
-        for (int i = v->array_capacity; i < new_cap; i++) {
-            v->value.array[i] = NULL;
-        }
-        v->array_capacity = new_cap;
-    }
-    
-    if (v->value.array[index] == NULL) {
-        v->value.array[index] = calloc(1, sizeof(Variable));
-        v->array_length++;
-    }
-    
-    v->value.array[index]->type = VAR_STRING;
     if (v->value.array[index]->value.strValue) {
         free(v->value.array[index]->value.strValue);
         v->value.array[index]->value.strValue = NULL;
     }
+    if (index + 1 > v->array_length) v->array_length = index + 1;
+}
+
+double getArrayElement(const char* name, int index) {
+    if (!name || index < 0) return 0;
+    
+    Variable* v = findVar(name);
+    if (v && v->type == VAR_ARRAY && index < v->array_length && v->value.array[index]) {
+        return v->value.array[index]->value.numValue;
+    }
+    return 0;
+}
+
+int getArrayLength(const char* name) {
+    if (!name) return 0;
+    Variable* v = findVar(name);
+    if (v && v->type == VAR_ARRAY) return v->array_length;
+    return 0;
+}
+
+void setArrayStringElement(const char* name, int index, const char* value) {
+    if (!name || !value || index < 0) return;
+    
+    Variable* v = findVar(name);
+    if (!v) {
+        if (varCount < MAX_VARS) {
+            strncpy(den[varCount].name, name, VAR_NAME_MAX);
+            den[varCount].name[VAR_NAME_MAX] = '\0';
+            den[varCount].type = VAR_ARRAY;
+            den[varCount].array_capacity = (index + 1) * 2;
+            den[varCount].value.array = malloc(den[varCount].array_capacity * sizeof(Variable*));
+            if (!den[varCount].value.array) {
+                printf("🐾 ERROR: Out of memory for array\n");
+                return;
+            }
+            for (int i = 0; i < den[varCount].array_capacity; i++) {
+                den[varCount].value.array[i] = NULL;
+            }
+            v = &den[varCount];
+            varCount++;
+        } else {
+            printf("🐾 ERROR: Max variables exceeded\n");
+            return;
+        }
+    }
+    
+    if (v->type != VAR_ARRAY) {
+        printf("🐾 ERROR: Variable is not an array\n");
+        return;
+    }
+    
+    if (index >= v->array_capacity) {
+        int newCapacity = (index + 1) * 2;
+        Variable** newArray = realloc(v->value.array, newCapacity * sizeof(Variable*));
+        if (!newArray) {
+            printf("🐾 ERROR: Out of memory expanding array\n");
+            return;
+        }
+        for (int i = v->array_capacity; i < newCapacity; i++) {
+            newArray[i] = NULL;
+        }
+        v->value.array = newArray;
+        v->array_capacity = newCapacity;
+    }
+    
+    if (!v->value.array[index]) {
+        v->value.array[index] = malloc(sizeof(Variable));
+        if (!v->value.array[index]) {
+            printf("🐾 ERROR: Out of memory for array element\n");
+            return;
+        }
+        v->value.array[index]->type = VAR_STRING;
+        v->value.array[index]->value.numValue = 0;
+        v->value.array[index]->value.strValue = NULL;
+    }
+    
+    if (v->value.array[index]->type == VAR_STRING && v->value.array[index]->value.strValue) {
+        free(v->value.array[index]->value.strValue);
+    }
+    
+    v->value.array[index]->type = VAR_STRING;
     v->value.array[index]->value.strValue = malloc(strlen(value) + 1);
     if (v->value.array[index]->value.strValue) {
         strcpy(v->value.array[index]->value.strValue, value);
+    } else {
+        printf("🐾 ERROR: Out of memory for string\n");
     }
+    if (index + 1 > v->array_length) v->array_length = index + 1;
 }
 
 char* getArrayStringElement(const char* name, int index) {
+    if (!name || index < 0) return "";
+    
     Variable* v = findVar(name);
-    if (!v) return "";
-    
-    if (v->type != VAR_ARRAY) return "";
-    
-    if (index < 0 || index >= v->array_capacity || v->value.array[index] == NULL) {
-        return "";
+    if (v && v->type == VAR_ARRAY && index < v->array_length && v->value.array[index]) {
+        if (v->value.array[index]->type == VAR_STRING && v->value.array[index]->value.strValue) {
+            return v->value.array[index]->value.strValue;
+        }
     }
-    
-    if (v->value.array[index]->type != VAR_STRING) {
-        return "";
-    }
-    
-    return v->value.array[index]->value.strValue ? v->value.array[index]->value.strValue : "";
+    return "";
 }
 
-// ─── DELETE VARIABLE ────────────────────────────────────────────
 void pounce(const char* name) {
+    if (!name) return;
     for (int i = 0; i < varCount; i++) {
         if (strcmp(den[i].name, name) == 0) {
             if (den[i].type == VAR_STRING && den[i].value.strValue) {
                 free(den[i].value.strValue);
-                den[i].value.strValue = NULL;
-            }
-            if (den[i].type == VAR_ARRAY) {
+            } else if (den[i].type == VAR_ARRAY && den[i].value.array) {
                 for (int j = 0; j < den[i].array_capacity; j++) {
                     if (den[i].value.array[j]) {
-                        if (den[i].value.array[j]->type == VAR_STRING && 
-                            den[i].value.array[j]->value.strValue) {
+                        if (den[i].value.array[j]->type == VAR_STRING && den[i].value.array[j]->value.strValue) {
                             free(den[i].value.array[j]->value.strValue);
-                            den[i].value.array[j]->value.strValue = NULL;
                         }
                         free(den[i].value.array[j]);
-                        den[i].value.array[j] = NULL;
                     }
                 }
                 free(den[i].value.array);
-                den[i].value.array = NULL;
             }
             for (int j = i; j < varCount - 1; j++) {
                 den[j] = den[j + 1];
             }
             varCount--;
-            printf("🐾 Pounced %s\n", name);
+            printf("🐾 Deleted variable: %s\n", name);
             return;
         }
     }
-    printf("🐾 %s not found in den\n", name);
 }
 
-// ─── LIST VARIABLES ─────────────────────────────────────────────
 void hunt() {
-    printf("\n🐾 DEN CONTENTS:\n");
+    if (varCount == 0) {
+        printf("🐾 No variables defined\n");
+        return;
+    }
+    printf("🐾 Variables:\n");
     for (int i = 0; i < varCount; i++) {
         if (den[i].type == VAR_NUMBER) {
-            printf("   %-12s : %.5f (number)\n", den[i].name, den[i].value.numValue);
+            printf("  %s = %.6g\n", den[i].name, den[i].value.numValue);
         } else if (den[i].type == VAR_STRING) {
-            printf("   %-12s : \"%s\" (string)\n", den[i].name, den[i].value.strValue ? den[i].value.strValue : "");
+            printf("  %s = \"%s\"\n", den[i].name, den[i].value.strValue ? den[i].value.strValue : "");
         } else if (den[i].type == VAR_ARRAY) {
-            printf("   %-12s : [ ", den[i].name);
-            int count = 0;
-            for (int j = 0; j < den[i].array_capacity; j++) {
-                if (den[i].value.array[j]) {
-                    if (count > 0) printf(", ");
-                    if (den[i].value.array[j]->type == VAR_NUMBER) {
-                        printf("%.5f", den[i].value.array[j]->value.numValue);
-                    } else if (den[i].value.array[j]->type == VAR_STRING) {
-                        printf("\"%s\"", den[i].value.array[j]->value.strValue ? den[i].value.array[j]->value.strValue : "");
-                    }
-                    count++;
-                }
-            }
-            printf(" ] (array, %d elements)\n", den[i].array_length);
+            printf("  %s [ %d ] (array, %d elements)\n", den[i].name, den[i].array_capacity, den[i].array_length);
         }
     }
     printf("\n");
@@ -345,18 +384,41 @@ void hunt() {
 
 // ─── FUNCTIONS ──────────────────────────────────────────────────
 void defineFunction(const char* name, const char** params, int paramCount, const char* body) {
+    if (!name || !body) {
+        printf("🐾 ERROR: Invalid function definition\n");
+        return;
+    }
     if (funcCount >= MAX_FUNCS) {
-        printf("🐾 Too many functions defined!\n");
+        printf("🐾 ERROR: Max functions (%d) exceeded\n", MAX_FUNCS);
+        return;
+    }
+    if (strlen(name) > 63) {
+        printf("🐾 ERROR: Function name too long\n");
+        return;
+    }
+    if (paramCount > 10) {
+        printf("🐾 ERROR: Too many parameters (max 10)\n");
         return;
     }
     
-    strcpy(functions[funcCount].name, name);
+    strncpy(functions[funcCount].name, name, 63);
+    functions[funcCount].name[63] = '\0';
     functions[funcCount].paramCount = paramCount;
     functions[funcCount].body = malloc(strlen(body) + 1);
+    if (!functions[funcCount].body) {
+        printf("🐾 ERROR: Out of memory for function body\n");
+        return;
+    }
     strcpy(functions[funcCount].body, body);
     
     for (int i = 0; i < paramCount; i++) {
-        strcpy(functions[funcCount].params[i], params[i]);
+        if (!params[i] || strlen(params[i]) > 63) {
+            printf("🐾 ERROR: Invalid parameter name\n");
+            free(functions[funcCount].body);
+            return;
+        }
+        strncpy(functions[funcCount].params[i], params[i], 63);
+        functions[funcCount].params[i][63] = '\0';
     }
     
     funcCount++;
@@ -364,6 +426,7 @@ void defineFunction(const char* name, const char** params, int paramCount, const
 }
 
 int callFunction(const char* name) {
+    if (!name) return 0;
     if (recursionDepth >= MAX_RECURSION) {
         setError("Recursion depth exceeded", 0, 0);
         return 0;
@@ -381,42 +444,46 @@ int callFunction(const char* name) {
                 return 0;
             }
             
-            int savedVarCount = varCount;
+            int savedCount = varCount;
             for (int j = 0; j < varCount; j++) {
                 savedDen[j] = den[j];
+                if (savedDen[j].type == VAR_STRING && savedDen[j].value.strValue) {
+                    savedDen[j].value.strValue = strdup(savedDen[j].value.strValue);
+                }
             }
             
+            varCount = 0;
             initScanner(functions[i].body);
             while (peekToken().type != TOKEN_EOF) {
                 parse_statement();
-                if (lynx_error) break;
+                if (lynx_error) {
+                    fprintf(stderr, "🐾 %s\n", lynx_error);
+                    clearError();
+                    break;
+                }
             }
             
             for (int j = 0; j < varCount; j++) {
                 if (den[j].type == VAR_STRING && den[j].value.strValue) {
                     free(den[j].value.strValue);
-                    den[j].value.strValue = NULL;
                 }
-                if (den[j].type == VAR_ARRAY) {
+                if (den[j].type == VAR_ARRAY && den[j].value.array) {
                     for (int k = 0; k < den[j].array_capacity; k++) {
                         if (den[j].value.array[k]) {
-                            if (den[j].value.array[k]->type == VAR_STRING && 
-                                den[j].value.array[k]->value.strValue) {
+                            if (den[j].value.array[k]->type == VAR_STRING && den[j].value.array[k]->value.strValue) {
                                 free(den[j].value.array[k]->value.strValue);
-                                den[j].value.array[k]->value.strValue = NULL;
                             }
                             free(den[j].value.array[k]);
-                            den[j].value.array[k] = NULL;
                         }
                     }
                     free(den[j].value.array);
-                    den[j].value.array = NULL;
                 }
             }
-            for (int j = 0; j < savedVarCount; j++) {
+            
+            varCount = savedCount;
+            for (int j = 0; j < varCount; j++) {
                 den[j] = savedDen[j];
             }
-            varCount = savedVarCount;
             free(savedDen);
             
             recursionDepth--;
@@ -424,12 +491,50 @@ int callFunction(const char* name) {
         }
     }
     
-    printf("🐾 Function '%s' not found\n", name);
     recursionDepth--;
     return 0;
 }
 
-// ─── TEMP FILE VARIABLE SAVING ────────────────────────────────
+// ─── CLEANUP ────────────────────────────────────────────────────
+void cleanup_all() {
+    for (int i = 0; i < varCount; i++) {
+        if (den[i].type == VAR_STRING && den[i].value.strValue) {
+            free(den[i].value.strValue);
+            den[i].value.strValue = NULL;
+        } else if (den[i].type == VAR_ARRAY && den[i].value.array) {
+            for (int j = 0; j < den[i].array_capacity; j++) {
+                if (den[i].value.array[j]) {
+                    if (den[i].value.array[j]->type == VAR_STRING && den[i].value.array[j]->value.strValue) {
+                        free(den[i].value.array[j]->value.strValue);
+                    }
+                    free(den[i].value.array[j]);
+                }
+            }
+            free(den[i].value.array);
+            den[i].value.array = NULL;
+        }
+    }
+    varCount = 0;
+    
+    for (int i = 0; i < funcCount; i++) {
+        if (functions[i].body) {
+            free(functions[i].body);
+            functions[i].body = NULL;
+        }
+    }
+    funcCount = 0;
+    
+    if (lynx_error) {
+        free(lynx_error);
+        lynx_error = NULL;
+    }
+    if (lynx_error_state.message) {
+        free(lynx_error_state.message);
+        lynx_error_state.message = NULL;
+    }
+}
+
+// ─── VARIABLE FILE PERSISTENCE ────────────────────────────────
 static char tempVarPath[LYNX_MAX_PATH];
 
 void save_vars_to_temp() {
@@ -514,11 +619,12 @@ void load_vars_from_temp() {
         
         char name[64];
         int type;
-        if (sscanf(line, "%[^|]|%d|", name, &type) != 2) {
+        if (sscanf(line, "%63[^|]|%d|", name, &type) != 2) {
             continue;
         }
         
-        strcpy(den[varCount].name, name);
+        strncpy(den[varCount].name, name, VAR_NAME_MAX);
+        den[varCount].name[VAR_NAME_MAX] = '\0';
         den[varCount].type = type;
         
         if (type == VAR_NUMBER) {
@@ -562,46 +668,4 @@ void load_vars_from_temp() {
 
 void clear_temp_vars() {
     remove(tempVarPath);
-}
-
-// ─── CLEANUP ────────────────────────────────────────────────────
-void cleanup_all() {
-    for (int i = 0; i < varCount; i++) {
-        if (den[i].type == VAR_STRING && den[i].value.strValue) {
-            free(den[i].value.strValue);
-            den[i].value.strValue = NULL;
-        }
-        if (den[i].type == VAR_ARRAY) {
-            for (int j = 0; j < den[i].array_capacity; j++) {
-                if (den[i].value.array[j]) {
-                    if (den[i].value.array[j]->type == VAR_STRING && 
-                        den[i].value.array[j]->value.strValue) {
-                        free(den[i].value.array[j]->value.strValue);
-                        den[i].value.array[j]->value.strValue = NULL;
-                    }
-                    free(den[i].value.array[j]);
-                    den[i].value.array[j] = NULL;
-                }
-            }
-            free(den[i].value.array);
-            den[i].value.array = NULL;
-        }
-    }
-    
-    for (int i = 0; i < funcCount; i++) {
-        if (functions[i].body) {
-            free(functions[i].body);
-            functions[i].body = NULL;
-        }
-    }
-    
-    if (lynx_error_state.message) {
-        free(lynx_error_state.message);
-        lynx_error_state.message = NULL;
-    }
-    
-    if (lynx_error) {
-        free(lynx_error);
-        lynx_error = NULL;
-    }
 }
