@@ -23,6 +23,9 @@ extern LynxError lynx_error_state;
 // ─── GLOBAL TRY/CATCH STATE ──────────────────────────────────
 TryState try_state = {0};
 
+// ─── PRESERVE VARS FLAG ──────────────────────────────────────
+int preserve_vars = 0;  // <-- ADDED
+
 void show_help() {
     printf("\n🐾 LYNX %s COMMANDS:\n", LYNX_VERSION);
     printf("\n  init               - Create new Lynx project\n");
@@ -96,8 +99,10 @@ void runFile(const char* path, int argc, char** argv) {
         buf[size] = '\0';
         fclose(file);
 
-        // Save variables to temp file BEFORE running script
-        save_vars_to_temp();
+        // Save variables to temp file BEFORE running script (ONLY if not preserving)
+        if (!preserve_vars) {
+            save_vars_to_temp();
+        }
 
         // Strip UTF-8 BOM (EF BB BF)
         if (size >= 3 &&
@@ -120,8 +125,10 @@ void runFile(const char* path, int argc, char** argv) {
         }
         scanner = previousScanner;
 
-        // Restore variables from temp file
-        load_vars_from_temp();
+        // Restore variables from temp file (ONLY if not preserving)
+        if (!preserve_vars) {
+            load_vars_from_temp();
+        }
 
         free(buf);
     }
@@ -144,6 +151,9 @@ int main(int argc, char* argv[]) {
     try_state.error_message = NULL;
     try_state.error_line = 0;
     try_state.error_col = 0;
+
+    // Initialize preserve_vars
+    preserve_vars = 0;  // <-- ADDED
 
     if (argc >= 2) {
         if (STRICMP(argv[1], "help") == 0 || STRICMP(argv[1], "--help") == 0) {
@@ -178,7 +188,10 @@ int main(int argc, char* argv[]) {
             } else {
                 setVarString("__author", "Anonymous");
             }
+            
+            preserve_vars = 1;  // <-- ADDED
             runFile("scripts/init.lnx", 0, NULL);
+            preserve_vars = 0;  // <-- ADDED
             return 0;
         } else if (STRICMP(argv[1], "add") == 0) {
             if (argc >= 3) {
