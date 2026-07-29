@@ -6,35 +6,18 @@ Set author = __author
 If projectName == "" {
     Roar "❌ Usage: lynx init <project_name> [author]"
     Roar "⚠️ Project not created"
-} 
-
-If projectName != "" {
+} Else {
     If author == "" {
-        Set author = "Unknown"
+        Set author = "Anonymous"
     }
 
-    # Build toml content piece by piece
-    Set tomlContent = "[package]\n"
-    Set tomlContent = tomlContent + "name = \""
-    Set tomlContent = tomlContent + projectName
-    Set tomlContent = tomlContent + "\"\n"
-    Set tomlContent = tomlContent + "version = \"0.1.0\"\n"
-    Set tomlContent = tomlContent + "authors = [\""
-    Set tomlContent = tomlContent + author
-    Set tomlContent = tomlContent + "\"]\n"
-    Set tomlContent = tomlContent + "description = \"A Lynx project\"\n"
-    Set tomlContent = tomlContent + "\n[dependencies]\n"
-
-    KittyWriteFile "lynx.toml" tomlContent
+    KittyWriteFile "lynx.toml" "[package]\nname = " + projectName + "\nversion = \"0.1.0\"\nauthors = [\"" + author + "\"]\ndescription = \"A Lynx project\"\n\n[dependencies]\n"
 
     Paw "src"
     Paw "libs"
     Paw "bin"
 
-    Set mainContent = "Roar \"Hello from "
-    Set mainContent = mainContent + projectName
-    Set mainContent = mainContent + "!\"\n"
-    KittyWriteFile "src/main.lnx" mainContent
+    KittyWriteFile "src/main.lnx" "Roar \"Hello from " + projectName + "!\"\n"
 
     Roar "✅ Project '" + projectName + "' initialized. Run 'lynx build' next."
 }
