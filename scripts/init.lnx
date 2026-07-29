@@ -1,20 +1,17 @@
 Roar "🐾 Initializing Lynx project..."
 
-# Validate inputs
-If __project_name == "" Then
-    Roar "❌ Missing project name. Usage: lynx run init.lnx <name> <author>"
-    Exit
-End
-
-If __author == "" Then
-    Roar "❌ Missing author. Usage: lynx run init.lnx <name> <author>"
-    Exit
-End
-
 Set projectName = __project_name
 Set author = __author
 
-# Build TOML safely
+If projectName == "" {
+    Roar "❌ Usage: lynx init <project_name> [author]"
+    Return
+}
+
+If author == "" {
+    Set author = "Unknown"
+}
+
 Set tomlContent = "[package]\n"
 Set tomlContent = tomlContent + "name = \"" + projectName + "\"\n"
 Set tomlContent = tomlContent + "version = \"0.1.0\"\n"
@@ -24,13 +21,11 @@ Set tomlContent = tomlContent + "\n[dependencies]\n"
 
 KittyWriteFile "lynx.toml" tomlContent
 
-# Create folders
 Paw "src"
 Paw "libs"
 Paw "bin"
 
-# Build main.lnx safely
-Set mainContent = "Roar \"Hello from " + projectName + "!\""
+Set mainContent = "Roar \"Hello from " + projectName + "!\"\n"
 KittyWriteFile "src/main.lnx" mainContent
 
 Roar "✅ Project '" + projectName + "' initialized. Run 'lynx build' next."
