@@ -1,55 +1,40 @@
-Roar "🐾 Removing package: " + __pkg
+Roar "🐾 Removing package..."
 
-KittyReadFile "lynx.toml"
-Set content = __file_content
+If __pkg == "" Then
+    Roar "❌ No package name provided."
+    Exit
+End
 
-Set found = 0
-Set new_content = ""
-KittySplitString content "\n"
-Set lines_count = __result_count
-Set i = 0
+Set pkg = __pkg
+Roar "🔧 Removing '" + pkg + "'..."
 
-While i < lines_count {
-    Set line = __result[i]
-    KittyCheckIfStringContains line (__pkg + " = ")
-    If __result == 0 {
-        Set new_content = new_content + line + "\n"
-    } Else {
-        Set found = 1
-    }
-    Set i = i + 1
-}
+# Read TOML
+Set toml = KittyReadFile "lynx.toml"
+Set newToml = ""
 
-If found == 0 {
-    Roar "⚠️ " + __pkg + " not found in dependencies"
-    Return
-}
+Loop line in toml
+    If line Contains pkg Then
+        Roar "🗑️ Removing dependency line: " + line
+    Else
+        Set newToml = newToml + line + "\n"
+    End
+End
 
-KittyWriteFile "lynx.toml" new_content
+KittyWriteFile "lynx.toml" newToml
 
-KittyFileExists "lynx.lock"
-If __result == 1 {
-    KittyReadFile "lynx.lock"
-    Set lockContent = __file_content
-    Set newLock = ""
-    KittySplitString lockContent "\n"
-    Set lock_lines_count = __result_count
-    Set j = 0
-    
-    While j < lock_lines_count {
-        Set line = __result[j]
-        KittyCheckIfStringContains line (__pkg + " = ")
-        If __result == 0 {
-            Set newLock = newLock + line + "\n"
-        }
-        Set j = j + 1
-    }
-    KittyWriteFile "lynx.lock" newLock
-}
+# Remove from lockfile
+Set lock = KittyReadFile "lynx.lock"
+Set newLock = ""
 
-Run "rmdir /s /q libs\\" + __pkg
+Loop line in lock
+    If line Contains pkg Then
+        Roar "🗑️ Removing lock entry: " + line
+    Else
+        Set newLock = newLock + line + "\n"
+    End
+End
 
-Set cachePath = getenv("USERPROFILE") + "\\.lynx\\cache\\" + __pkg + "_*.tar.gz"
-Run "del /q " + cachePath
+KittyWriteFile "lynx.lock" newLock
 
-Roar "✅ Removed " + __pkg
+Roar "✅ Package '" + pkg + "' removed successfully."
+Exit
