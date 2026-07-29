@@ -1,40 +1,50 @@
-Roar "🐾 Removing package..."
+Roar "🐾 Removing package: " + __pkg
 
-If __pkg == "" Then
-    Roar "❌ No package name provided."
-    Exit
-End
+KittyReadFile "lynx.toml"
+Set content = __file_content
 
-Set pkg = __pkg
-Roar "🔧 Removing '" + pkg + "'..."
+Set found = 0
+Set new_content = ""
+KittySplitString content "\n"
+Set lines_count = __result_count
 
-# Read TOML
-Set toml = KittyReadFile "lynx.toml"
-Set newToml = ""
+For i = 0 To lines_count - 1 {
+    Set line = __result[i]
+    KittyCheckIfStringContains line (__pkg + " = ")
+    If __result == 0 {
+        Set new_content = new_content + line + "\n"
+    } Else {
+        Set found = 1
+    }
+}
 
-Loop line in toml
-    If line Contains pkg Then
-        Roar "🗑️ Removing dependency line: " + line
-    Else
-        Set newToml = newToml + line + "\n"
-    End
-End
+If found == 0 {
+    Roar "⚠️ " + __pkg + " not found in dependencies"
+    Return
+}
 
-KittyWriteFile "lynx.toml" newToml
+KittyWriteFile "lynx.toml" new_content
 
-# Remove from lockfile
-Set lock = KittyReadFile "lynx.lock"
-Set newLock = ""
+KittyFileExists "lynx.lock"
+If __result == 1 {
+    KittyReadFile "lynx.lock"
+    Set lockContent = __file_content
+    Set newLock = ""
+    KittySplitString lockContent "\n"
+    Set lock_lines_count = __result_count
+    For i = 0 To lock_lines_count - 1 {
+        Set line = __result[i]
+        KittyCheckIfStringContains line (__pkg + " = ")
+        If __result == 0 {
+            Set newLock = newLock + line + "\n"
+        }
+    }
+    KittyWriteFile "lynx.lock" newLock
+}
 
-Loop line in lock
-    If line Contains pkg Then
-        Roar "🗑️ Removing lock entry: " + line
-    Else
-        Set newLock = newLock + line + "\n"
-    End
-End
+Run "rmdir /s /q libs\\" + __pkg
 
-KittyWriteFile "lynx.lock" newLock
+Set cachePath = getenv("USERPROFILE") + "\\.lynx\\cache\\" + __pkg + "_*.tar.gz"
+Run "del /q " + cachePath
 
-Roar "✅ Package '" + pkg + "' removed successfully."
-Exit
+Roar "✅ Removed " + __pkg
