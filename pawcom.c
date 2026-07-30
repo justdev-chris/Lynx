@@ -316,6 +316,22 @@ static void kitty_port(const char* name) {
     clearError();
 }
 
+static int is_command_token(LynxTokenType type) {
+    return type == TOKEN_SET || type == TOKEN_IF || type == TOKEN_FOR ||
+           type == TOKEN_WHILE || type == TOKEN_FUNC || type == TOKEN_ROAR ||
+           type == TOKEN_HUNT || type == TOKEN_POUNCE || type == TOKEN_STALK_PACK ||
+           type == TOKEN_LOAD_LIB || type == TOKEN_KITTY_WRITE_FILE || 
+           type == TOKEN_KITTY_READ_FILE || type == TOKEN_PAW || 
+           type == TOKEN_KITTY_FILE_EXISTS || type == TOKEN_RUN ||
+           type == TOKEN_GETENV || type == TOKEN_EXPORT || type == TOKEN_KITTY_PORT ||
+           type == TOKEN_KITTY_REMOVE_FILE || type == TOKEN_KITTY_LIST_FILES ||
+           type == TOKEN_ELSE || type == TOKEN_RETURN || type == TOKEN_BREAK ||
+           type == TOKEN_CONTINUE || type == TOKEN_KITTY_READ_DIR ||
+           type == TOKEN_GET_ERROR || type == TOKEN_STRING_SPLIT ||
+           type == TOKEN_STRING_CONTAINS || type == TOKEN_STRING_REPLACE ||
+           type == TOKEN_TRIM || type == TOKEN_LEN || type == TOKEN_ARGV;
+}
+
 int pawcom_parse_statement(Token t) {
     if (t.type == TOKEN_HUNT) { hunt(); return 1; }
 
@@ -324,6 +340,13 @@ int pawcom_parse_statement(Token t) {
         char result[4096] = "";
         
         while (1) {
+            Token next = peekToken();
+            
+            // If next token is a command, stop (don't consume it)
+            if (is_command_token(next.type)) {
+                break;
+            }
+            
             Token val = scanToken();
             
             if (val.type == TOKEN_EOF || val.type == TOKEN_ERROR) {
@@ -331,11 +354,13 @@ int pawcom_parse_statement(Token t) {
             }
             
             if (val.type == TOKEN_STRING) {
+                char str[4096];
                 if (val.length > 1) {
-                    char str[4096];
                     snprintf(str, sizeof(str), "%.*s", val.length - 2, val.start + 1);
-                    strncat(result, str, sizeof(result) - strlen(result) - 1);
+                } else {
+                    str[0] = '\0';
                 }
+                strncat(result, str, sizeof(result) - strlen(result) - 1);
             } else if (val.type == TOKEN_IDENTIFIER) {
                 char name[64];
                 snprintf(name, sizeof(name), "%.*s", val.length, val.start);
@@ -344,11 +369,6 @@ int pawcom_parse_statement(Token t) {
                     strncat(result, s, sizeof(result) - strlen(result) - 1);
                 } else {
                     double num = getVar(name);
-                    if (lynx_error) {
-                        printf("%s\n", lynx_error);
-                        clearError();
-                        return 1;
-                    }
                     char numStr[32];
                     snprintf(numStr, sizeof(numStr), "%.5f", num);
                     strncat(result, numStr, sizeof(result) - strlen(result) - 1);
@@ -366,10 +386,18 @@ int pawcom_parse_statement(Token t) {
                     clearError();
                     return 1;
                 }
-                Token next = peekToken();
-                if (next.type == TOKEN_EOF || next.type == TOKEN_ERROR) break;
+                continue;
+            }
+            
+            Token after = peekToken();
+            if (after.type == TOKEN_PLUS) {
+                scanToken();
+                continue;
+            } else {
+                break;
             }
         }
+        
         printf("%s\n", result);
         return 1;
     }
@@ -394,10 +422,68 @@ int pawcom_parse_statement(Token t) {
             return 1;
         }
 
-        double value = parse_expression();
-        if (lynx_error) return 1;
-
-        setVar(varName, value);
+        // Check if it's a string expression
+        Token first = peekToken();
+        if (first.type == TOKEN_STRING || first.type == TOKEN_IDENTIFIER) {
+            char result[4096] = "";
+            
+            while (1) {
+                Token next = peekToken();
+                
+                // If next token is a command, stop
+                if (is_command_token(next.type)) {
+                    break;
+                }
+                
+                Token val = scanToken();
+                
+                if (val.type == TOKEN_EOF || val.type == TOKEN_ERROR) {
+                    break;
+                }
+                
+                if (val.type == TOKEN_STRING) {
+                    char str[4096];
+                    if (val.length > 1) {
+                        snprintf(str, sizeof(str), "%.*s", val.length - 2, val.start + 1);
+                    } else {
+                        str[0] = '\0';
+                    }
+                    strncat(result, str, sizeof(result) - strlen(result) - 1);
+                } else if (val.type == TOKEN_IDENTIFIER) {
+                    char name[64];
+                    snprintf(name, sizeof(name), "%.*s", val.length, val.start);
+                    char* s = getVarString(name);
+                    if (s && strlen(s) > 0) {
+                        strncat(result, s, sizeof(result) - strlen(result) - 1);
+                    } else {
+                        double num = getVar(name);
+                        char numStr[32];
+                        snprintf(numStr, sizeof(numStr), "%.5f", num);
+                        strncat(result, numStr, sizeof(result) - strlen(result) - 1);
+                    }
+                } else if (val.type == TOKEN_NUMBER) {
+                    char numStr[32];
+                    snprintf(numStr, sizeof(numStr), "%.5f", atof(val.start));
+                    strncat(result, numStr, sizeof(result) - strlen(result) - 1);
+                } else {
+                    if (val.type != TOKEN_PLUS) {
+                        char* text = getTokenText(val);
+                        setErrorF("Set expects string, identifier, or number, got '%s' (type: %s)",
+                                  text, tokenTypeToString(val.type));
+                        printf("%s\n", lynx_error);
+                        clearError();
+                        return 1;
+                    }
+                    continue;
+                }
+            }
+            setVarString(varName, result);
+        } else {
+            // Numeric expression
+            double value = parse_expression();
+            if (lynx_error) return 1;
+            setVar(varName, value);
+        }
         return 1;
     }
 
@@ -443,6 +529,464 @@ int pawcom_parse_statement(Token t) {
         char filePath[LYNX_MAX_PATH];
         snprintf(filePath, sizeof(filePath), "%.*s", pathToken.length - 2, pathToken.start + 1);
         runFile(filePath, 0, NULL);
+        return 1;
+    }
+
+    // ─── KITTY_WRITE_FILE ─────────────────────────────────────
+    if (t.type == TOKEN_KITTY_WRITE_FILE) {
+        Token pathToken = scanToken();
+        Token contentToken = scanToken();
+        
+        if (pathToken.type != TOKEN_STRING && pathToken.type != TOKEN_IDENTIFIER) {
+            setErrorF("KittyWriteFile expects path (string or variable)");
+            return 1;
+        }
+        if (contentToken.type != TOKEN_STRING && contentToken.type != TOKEN_IDENTIFIER) {
+            setErrorF("KittyWriteFile expects content (string or variable)");
+            return 1;
+        }
+        
+        char path[LYNX_MAX_PATH];
+        char content[MAX_STRING];
+        
+        if (pathToken.type == TOKEN_STRING) {
+            snprintf(path, sizeof(path), "%.*s", pathToken.length - 2, pathToken.start + 1);
+        } else {
+            char name[64];
+            snprintf(name, sizeof(name), "%.*s", pathToken.length, pathToken.start);
+            char* val = getVarString(name);
+            if (val) {
+                snprintf(path, sizeof(path), "%s", val);
+            } else {
+                setErrorF("KittyWriteFile: variable '%s' is not a string", name);
+                return 1;
+            }
+        }
+        
+        if (contentToken.type == TOKEN_STRING) {
+            snprintf(content, sizeof(content), "%.*s", contentToken.length - 2, contentToken.start + 1);
+        } else {
+            char name[64];
+            snprintf(name, sizeof(name), "%.*s", contentToken.length, contentToken.start);
+            char* val = getVarString(name);
+            if (val) {
+                snprintf(content, sizeof(content), "%s", val);
+            } else {
+                setErrorF("KittyWriteFile: variable '%s' is not a string", name);
+                return 1;
+            }
+        }
+        
+        FILE* f = fopen(path, "w");
+        if (f) {
+            fwrite(content, 1, strlen(content), f);
+            fclose(f);
+        } else {
+            setErrorF("KittyWriteFile: Could not open '%s' for writing", path);
+        }
+        return 1;
+    }
+
+    // ─── KITTY_READ_FILE ──────────────────────────────────────
+    if (t.type == TOKEN_KITTY_READ_FILE) {
+        Token pathToken = scanToken();
+        if (pathToken.type != TOKEN_STRING && pathToken.type != TOKEN_IDENTIFIER) {
+            setErrorF("KittyReadFile expects string or variable");
+            return 1;
+        }
+        
+        char path[LYNX_MAX_PATH];
+        if (pathToken.type == TOKEN_STRING) {
+            snprintf(path, sizeof(path), "%.*s", pathToken.length - 2, pathToken.start + 1);
+        } else {
+            char name[64];
+            snprintf(name, sizeof(name), "%.*s", pathToken.length, pathToken.start);
+            char* val = getVarString(name);
+            if (val) {
+                snprintf(path, sizeof(path), "%s", val);
+            } else {
+                setErrorF("KittyReadFile: variable '%s' is not a string", name);
+                return 1;
+            }
+        }
+        
+        FILE* f = fopen(path, "r");
+        if (f) {
+            fseek(f, 0, SEEK_END);
+            long size = ftell(f);
+            rewind(f);
+            char* buf = malloc(size + 1);
+            if (buf) {
+                fread(buf, 1, size, f);
+                buf[size] = '\0';
+                fclose(f);
+                setVarString("__file_content", buf);
+                free(buf);
+            } else {
+                fclose(f);
+                setErrorF("Out of memory reading file");
+            }
+        } else {
+            setErrorF("KittyReadFile: File '%s' not found", path);
+        }
+        return 1;
+    }
+
+    // ─── PAW ──────────────────────────────────────────────────
+    if (t.type == TOKEN_PAW) {
+        Token pathToken = scanToken();
+        if (pathToken.type != TOKEN_STRING && pathToken.type != TOKEN_IDENTIFIER) {
+            setErrorF("Paw expects string or variable");
+            return 1;
+        }
+        
+        char path[LYNX_MAX_PATH];
+        if (pathToken.type == TOKEN_STRING) {
+            snprintf(path, sizeof(path), "%.*s", pathToken.length - 2, pathToken.start + 1);
+        } else {
+            char name[64];
+            snprintf(name, sizeof(name), "%.*s", pathToken.length, pathToken.start);
+            char* val = getVarString(name);
+            if (val) {
+                snprintf(path, sizeof(path), "%s", val);
+            } else {
+                setErrorF("Paw: variable '%s' is not a string", name);
+                return 1;
+            }
+        }
+        
+        #ifdef _WIN32
+        if (_mkdir(path) != 0 && errno != EEXIST) {
+            setErrorF("Paw: Could not create directory '%s'", path);
+        }
+        #else
+        if (mkdir(path, 0777) != 0 && errno != EEXIST) {
+            setErrorF("Paw: Could not create directory '%s'", path);
+        }
+        #endif
+        return 1;
+    }
+
+    // ─── KITTY_FILE_EXISTS ────────────────────────────────────
+    if (t.type == TOKEN_KITTY_FILE_EXISTS) {
+        Token pathToken = scanToken();
+        if (pathToken.type != TOKEN_STRING && pathToken.type != TOKEN_IDENTIFIER) {
+            setErrorF("KittyFileExists expects string or variable");
+            return 1;
+        }
+        
+        char path[LYNX_MAX_PATH];
+        if (pathToken.type == TOKEN_STRING) {
+            snprintf(path, sizeof(path), "%.*s", pathToken.length - 2, pathToken.start + 1);
+        } else {
+            char name[64];
+            snprintf(name, sizeof(name), "%.*s", pathToken.length, pathToken.start);
+            char* val = getVarString(name);
+            if (val) {
+                snprintf(path, sizeof(path), "%s", val);
+            } else {
+                setErrorF("KittyFileExists: variable '%s' is not a string", name);
+                return 1;
+            }
+        }
+        
+        FILE* f = fopen(path, "r");
+        setVar("__result", f ? 1.0 : 0.0);
+        if (f) fclose(f);
+        return 1;
+    }
+
+    // ─── RUN ──────────────────────────────────────────────────
+    if (t.type == TOKEN_RUN) {
+        Token cmdToken = scanToken();
+        if (cmdToken.type != TOKEN_STRING) {
+            setErrorF("Run expects string");
+            return 1;
+        }
+        char cmd[512];
+        snprintf(cmd, sizeof(cmd), "%.*s", cmdToken.length - 2, cmdToken.start + 1);
+        int result = system(cmd);
+        if (result != 0) {
+            setErrorF("Run: Command failed with exit code %d", result);
+        }
+        return 1;
+    }
+
+    // ─── KITTY_REMOVE_FILE ────────────────────────────────────
+    if (t.type == TOKEN_KITTY_REMOVE_FILE) {
+        Token pathToken = scanToken();
+        if (pathToken.type != TOKEN_STRING && pathToken.type != TOKEN_IDENTIFIER) {
+            setErrorF("KittyRemoveFile expects string or variable");
+            return 1;
+        }
+        
+        char path[LYNX_MAX_PATH];
+        if (pathToken.type == TOKEN_STRING) {
+            snprintf(path, sizeof(path), "%.*s", pathToken.length - 2, pathToken.start + 1);
+        } else {
+            char name[64];
+            snprintf(name, sizeof(name), "%.*s", pathToken.length, pathToken.start);
+            char* val = getVarString(name);
+            if (val) {
+                snprintf(path, sizeof(path), "%s", val);
+            } else {
+                setErrorF("KittyRemoveFile: variable '%s' is not a string", name);
+                return 1;
+            }
+        }
+        
+        if (remove(path) != 0) {
+            setErrorF("KittyRemoveFile: Could not remove '%s'", path);
+        }
+        return 1;
+    }
+
+    // ─── GETENV ──────────────────────────────────────────────────
+    if (t.type == TOKEN_GETENV) {
+        Token nameToken = scanToken();
+        if (nameToken.type != TOKEN_STRING) {
+            setErrorF("getenv expects string");
+            return 1;
+        }
+        char name[256];
+        snprintf(name, sizeof(name), "%.*s", nameToken.length - 2, nameToken.start + 1);
+        const char* value = getenv(name);
+        if (value) {
+            setVarString("__result", value);
+        } else {
+            setVarString("__result", "");
+        }
+        return 1;
+    }
+
+    // ─── LEN ──────────────────────────────────────────────────
+    if (t.type == TOKEN_LEN) {
+        Token strToken = scanToken();
+        if (strToken.type != TOKEN_STRING && strToken.type != TOKEN_IDENTIFIER) {
+            setErrorF("Len expects string or variable");
+            return 1;
+        }
+        
+        char str[MAX_STRING];
+        if (strToken.type == TOKEN_STRING) {
+            snprintf(str, sizeof(str), "%.*s", strToken.length - 2, strToken.start + 1);
+        } else {
+            char name[64];
+            snprintf(name, sizeof(name), "%.*s", strToken.length, strToken.start);
+            char* val = getVarString(name);
+            if (val) {
+                snprintf(str, sizeof(str), "%s", val);
+            } else {
+                str[0] = '\0';
+            }
+        }
+        
+        setVar("__result", (double)strlen(str));
+        return 1;
+    }
+
+    // ─── TRIM ──────────────────────────────────────────────────
+    if (t.type == TOKEN_TRIM) {
+        Token strToken = scanToken();
+        if (strToken.type != TOKEN_STRING && strToken.type != TOKEN_IDENTIFIER) {
+            setErrorF("Trim expects string or variable");
+            return 1;
+        }
+        
+        char str[MAX_STRING];
+        if (strToken.type == TOKEN_STRING) {
+            snprintf(str, sizeof(str), "%.*s", strToken.length - 2, strToken.start + 1);
+        } else {
+            char name[64];
+            snprintf(name, sizeof(name), "%.*s", strToken.length, strToken.start);
+            char* val = getVarString(name);
+            if (val) {
+                snprintf(str, sizeof(str), "%s", val);
+            } else {
+                str[0] = '\0';
+            }
+        }
+        
+        char* trimmed = str_trim_copy(str);
+        setVarString("__result", trimmed);
+        free(trimmed);
+        return 1;
+    }
+
+    // ─── KITTY_SPLIT_STRING ──────────────────────────────────
+    if (t.type == TOKEN_STRING_SPLIT) {
+        Token strToken = scanToken();
+        Token delimToken = scanToken();
+        
+        if (strToken.type != TOKEN_STRING && strToken.type != TOKEN_IDENTIFIER) {
+            setErrorF("KittySplitString expects string or variable");
+            return 1;
+        }
+        if (delimToken.type != TOKEN_STRING && delimToken.type != TOKEN_IDENTIFIER) {
+            setErrorF("KittySplitString expects string or variable");
+            return 1;
+        }
+        
+        char str[MAX_STRING];
+        char delim[256];
+        
+        if (strToken.type == TOKEN_STRING) {
+            snprintf(str, sizeof(str), "%.*s", strToken.length - 2, strToken.start + 1);
+        } else {
+            char name[64];
+            snprintf(name, sizeof(name), "%.*s", strToken.length, strToken.start);
+            char* val = getVarString(name);
+            if (val) {
+                snprintf(str, sizeof(str), "%s", val);
+            } else {
+                setErrorF("KittySplitString: variable '%s' is not a string", name);
+                return 1;
+            }
+        }
+        
+        if (delimToken.type == TOKEN_STRING) {
+            snprintf(delim, sizeof(delim), "%.*s", delimToken.length - 2, delimToken.start + 1);
+        } else {
+            char name[64];
+            snprintf(name, sizeof(name), "%.*s", delimToken.length, delimToken.start);
+            char* val = getVarString(name);
+            if (val) {
+                snprintf(delim, sizeof(delim), "%s", val);
+            } else {
+                setErrorF("KittySplitString: delimiter variable '%s' is not a string", name);
+                return 1;
+            }
+        }
+        
+        int count = 0;
+        char** result = split_string(str, delim, &count);
+        if (result) {
+            for (int i = 0; i < count; i++) {
+                setArrayStringElement("__result", i, result[i]);
+                free(result[i]);
+            }
+            free(result);
+        }
+        setVar("__result_count", (double)count);
+        return 1;
+    }
+
+    // ─── KITTY_CONTAINS ──────────────────────────────────────
+    if (t.type == TOKEN_STRING_CONTAINS) {
+        Token hayToken = scanToken();
+        Token needleToken = scanToken();
+        
+        if (hayToken.type != TOKEN_STRING && hayToken.type != TOKEN_IDENTIFIER) {
+            setErrorF("KittyCheckIfStringContains expects string or variable");
+            return 1;
+        }
+        if (needleToken.type != TOKEN_STRING && needleToken.type != TOKEN_IDENTIFIER) {
+            setErrorF("KittyCheckIfStringContains expects string or variable");
+            return 1;
+        }
+        
+        char hay[MAX_STRING];
+        char needle[MAX_STRING];
+        
+        if (hayToken.type == TOKEN_STRING) {
+            snprintf(hay, sizeof(hay), "%.*s", hayToken.length - 2, hayToken.start + 1);
+        } else {
+            char name[64];
+            snprintf(name, sizeof(name), "%.*s", hayToken.length, hayToken.start);
+            char* val = getVarString(name);
+            if (val) {
+                snprintf(hay, sizeof(hay), "%s", val);
+            } else {
+                setErrorF("KittyCheckIfStringContains: variable '%s' is not a string", name);
+                return 1;
+            }
+        }
+        
+        if (needleToken.type == TOKEN_STRING) {
+            snprintf(needle, sizeof(needle), "%.*s", needleToken.length - 2, needleToken.start + 1);
+        } else {
+            char name[64];
+            snprintf(name, sizeof(name), "%.*s", needleToken.length, needleToken.start);
+            char* val = getVarString(name);
+            if (val) {
+                snprintf(needle, sizeof(needle), "%s", val);
+            } else {
+                setErrorF("KittyCheckIfStringContains: variable '%s' is not a string", name);
+                return 1;
+            }
+        }
+        
+        setVar("__result", str_contains(hay, needle) ? 1.0 : 0.0);
+        return 1;
+    }
+
+    // ─── KITTY_REPLACE_STRING ──────────────────────────────
+    if (t.type == TOKEN_STRING_REPLACE) {
+        Token srcToken = scanToken();
+        Token oldToken = scanToken();
+        Token newToken = scanToken();
+        
+        if (srcToken.type != TOKEN_STRING && srcToken.type != TOKEN_IDENTIFIER) {
+            setErrorF("KittyReplaceString expects string or variable");
+            return 1;
+        }
+        if (oldToken.type != TOKEN_STRING && oldToken.type != TOKEN_IDENTIFIER) {
+            setErrorF("KittyReplaceString expects string or variable");
+            return 1;
+        }
+        if (newToken.type != TOKEN_STRING && newToken.type != TOKEN_IDENTIFIER) {
+            setErrorF("KittyReplaceString expects string or variable");
+            return 1;
+        }
+        
+        char src[MAX_STRING];
+        char oldStr[MAX_STRING];
+        char newStr[MAX_STRING];
+        
+        if (srcToken.type == TOKEN_STRING) {
+            snprintf(src, sizeof(src), "%.*s", srcToken.length - 2, srcToken.start + 1);
+        } else {
+            char name[64];
+            snprintf(name, sizeof(name), "%.*s", srcToken.length, srcToken.start);
+            char* val = getVarString(name);
+            if (val) {
+                snprintf(src, sizeof(src), "%s", val);
+            } else {
+                setErrorF("KittyReplaceString: variable '%s' is not a string", name);
+                return 1;
+            }
+        }
+        
+        if (oldToken.type == TOKEN_STRING) {
+            snprintf(oldStr, sizeof(oldStr), "%.*s", oldToken.length - 2, oldToken.start + 1);
+        } else {
+            char name[64];
+            snprintf(name, sizeof(name), "%.*s", oldToken.length, oldToken.start);
+            char* val = getVarString(name);
+            if (val) {
+                snprintf(oldStr, sizeof(oldStr), "%s", val);
+            } else {
+                setErrorF("KittyReplaceString: variable '%s' is not a string", name);
+                return 1;
+            }
+        }
+        
+        if (newToken.type == TOKEN_STRING) {
+            snprintf(newStr, sizeof(newStr), "%.*s", newToken.length - 2, newToken.start + 1);
+        } else {
+            char name[64];
+            snprintf(name, sizeof(name), "%.*s", newToken.length, newToken.start);
+            char* val = getVarString(name);
+            if (val) {
+                snprintf(newStr, sizeof(newStr), "%s", val);
+            } else {
+                setErrorF("KittyReplaceString: variable '%s' is not a string", name);
+                return 1;
+            }
+        }
+        
+        char* result = str_replace(src, oldStr, newStr);
+        setVarString("__result", result);
         return 1;
     }
 
