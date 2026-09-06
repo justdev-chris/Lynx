@@ -24,7 +24,7 @@ extern LynxError lynx_error_state;
 TryState try_state = {0};
 
 // ─── PRESERVE VARS FLAG ──────────────────────────────────────
-int preserve_vars = 0;  // <-- ADDED
+int preserve_vars = 0;
 
 void show_help() {
     printf("\n🐾 LYNX %s COMMANDS:\n", LYNX_VERSION);
@@ -45,13 +45,18 @@ void show_help() {
 }
 
 void runFile(const char* path, int argc, char** argv) {
+    (void)argc;  // currently unused
+    (void)argv;  // currently unused
+
     char cleanPath[LYNX_MAX_PATH];
     if (path[0] == '"') {
         int len = (int)strlen(path) - 2;
+        if (len < 0) len = 0;
         strncpy(cleanPath, path + 1, len);
         cleanPath[len] = '\0';
     } else {
-        strcpy(cleanPath, path);
+        strncpy(cleanPath, path, LYNX_MAX_PATH - 1);
+        cleanPath[LYNX_MAX_PATH - 1] = '\0';
     }
 
     FILE* file = NULL;
@@ -66,6 +71,7 @@ void runFile(const char* path, int argc, char** argv) {
         #else
         ssize_t len = readlink("/proc/self/exe", exePath, LYNX_MAX_PATH - 1);
         if (len != -1) exePath[len] = '\0';
+        else exePath[0] = '\0';
         #endif
         char* lastSlash = strrchr(exePath, PATH_SEP);
         if (lastSlash) {
@@ -95,8 +101,8 @@ void runFile(const char* path, int argc, char** argv) {
     rewind(file);
     char* buf = (char*)malloc(size + 1);
     if (buf) {
-        fread(buf, 1, size, file);
-        buf[size] = '\0';
+        size_t read = fread(buf, 1, size, file);
+        buf[read] = '\0';
         fclose(file);
 
         // Save variables to temp file BEFORE running script (ONLY if not preserving)
@@ -105,12 +111,12 @@ void runFile(const char* path, int argc, char** argv) {
         }
 
         // Strip UTF-8 BOM (EF BB BF)
-        if (size >= 3 &&
+        if (read >= 3 &&
             (unsigned char)buf[0] == 0xEF &&
             (unsigned char)buf[1] == 0xBB &&
             (unsigned char)buf[2] == 0xBF) {
-            memmove(buf, buf + 3, size - 2);
-            buf[size - 3] = '\0';
+            memmove(buf, buf + 3, read - 2);
+            buf[read - 3] = '\0';
         }
 
         Scanner previousScanner = scanner;
@@ -131,6 +137,8 @@ void runFile(const char* path, int argc, char** argv) {
         }
 
         free(buf);
+    } else {
+        fclose(file);
     }
 }
 
@@ -153,7 +161,7 @@ int main(int argc, char* argv[]) {
     try_state.error_col = 0;
 
     // Initialize preserve_vars
-    preserve_vars = 0;  // <-- ADDED
+    preserve_vars = 0;
 
     if (argc >= 2) {
         if (STRICMP(argv[1], "help") == 0 || STRICMP(argv[1], "--help") == 0) {
@@ -178,6 +186,10 @@ int main(int argc, char* argv[]) {
         }
         #endif
         else if (STRICMP(argv[1], "init") == 0) {
+            // Clear any previous error state
+            clearError();
+
+            // Set project name and author BEFORE enabling preserve_vars
             if (argc >= 3) {
                 setVarString("__project_name", argv[2]);
             } else {
@@ -189,9 +201,9 @@ int main(int argc, char* argv[]) {
                 setVarString("__author", "Anonymous");
             }
             
-            preserve_vars = 1;  // <-- ADDED
+            preserve_vars = 1;
             runFile("scripts/init.lnx", 0, NULL);
-            preserve_vars = 0;  // <-- ADDED
+            preserve_vars = 0;
             return 0;
         } else if (STRICMP(argv[1], "add") == 0) {
             if (argc >= 3) {
