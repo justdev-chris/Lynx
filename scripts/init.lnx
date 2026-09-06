@@ -6,9 +6,7 @@ Set author = __author
 If projectName == "" {
     Roar "❌ Usage: lynx init <project_name> [author]"
     Roar "⚠️ Project not created"
-} 
-
-If projectName != "" {
+} Else {
     If author == "" {
         Set author = "Unknown"
     }
