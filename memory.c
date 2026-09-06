@@ -64,7 +64,6 @@ void setVar(const char* name, double val) {
     
     Variable* v = findVar(name);
     if (v) {
-        // Free previous string or array data
         if (v->type == VAR_ARRAY) {
             for (int i = 0; i < v->array_capacity; i++) {
                 if (v->value.array[i]) {
@@ -106,22 +105,20 @@ void setVar(const char* name, double val) {
     }
 }
 
+// FIXED: Removed v->value.array = NULL - it was clobbering strValue!
 void setVarString(const char* name, const char* value) {
-    // ===== DEBUG =====
     printf("🐾 DEBUG setVarString: name='%s', value='%s'\n", name ? name : "(null)", value ? value : "(null)");
     
     if (!name || strlen(name) == 0 || strlen(name) > VAR_NAME_MAX) {
         printf("🐾 ERROR: setVarString called with invalid name\n");
         return;
     }
-    // Allow empty string values
     if (!value) value = "";
     
     Variable* v = findVar(name);
     if (v) {
         printf("🐾 DEBUG setVarString: found existing variable '%s', type=%d\n", name, v->type);
         
-        // Free previous string or array data
         if (v->type == VAR_ARRAY) {
             for (int i = 0; i < v->array_capacity; i++) {
                 if (v->value.array[i]) {
@@ -142,7 +139,6 @@ void setVarString(const char* name, const char* value) {
             v->value.strValue = NULL;
         }
         
-        // Set type FIRST
         v->type = VAR_STRING;
         v->value.strValue = malloc(strlen(value) + 1);
         if (v->value.strValue) {
@@ -154,8 +150,7 @@ void setVarString(const char* name, const char* value) {
         }
         v->array_length = 0;
         v->array_capacity = 0;
-        
-        printf("🐾 DEBUG setVarString: FINAL - name='%s', type=%d, strValue='%s'\n", name, v->type, v->value.strValue ? v->value.strValue : "(null)");
+        // FIXED: DO NOT set v->value.array = NULL - it clobbers strValue!
         return;
     }
     
@@ -164,7 +159,6 @@ void setVarString(const char* name, const char* value) {
     if (varCount < MAX_VARS) {
         strncpy(den[varCount].name, name, VAR_NAME_MAX);
         den[varCount].name[VAR_NAME_MAX] = '\0';
-        // Set type FIRST
         den[varCount].type = VAR_STRING;
         den[varCount].value.strValue = malloc(strlen(value) + 1);
         if (den[varCount].value.strValue) {
@@ -174,9 +168,9 @@ void setVarString(const char* name, const char* value) {
             printf("🐾 ERROR: Out of memory for string\n");
             den[varCount].value.strValue = NULL;
         }
-        den[varCount].value.array = NULL;
         den[varCount].array_length = 0;
         den[varCount].array_capacity = 0;
+        // FIXED: DO NOT set den[varCount].value.array = NULL - it clobbers strValue!
         varCount++;
         printf("🐾 DEBUG setVarString: varCount now = %d\n", varCount);
         printf("🐾 DEBUG setVarString: FINAL - name='%s', type=%d, strValue='%s'\n", name, den[varCount-1].type, den[varCount-1].value.strValue ? den[varCount-1].value.strValue : "(null)");
@@ -263,7 +257,6 @@ void setArrayElement(const char* name, int index, double value) {
         v->value.array[index]->value.strValue = NULL;
     }
     
-    // Clean previous string if any
     if (v->value.array[index]->type == VAR_STRING && v->value.array[index]->value.strValue) {
         free(v->value.array[index]->value.strValue);
         v->value.array[index]->value.strValue = NULL;
@@ -397,7 +390,6 @@ void pounce(const char* name) {
                 free(den[i].value.array);
                 den[i].value.array = NULL;
             }
-            // Shift remaining variables
             for (int j = i; j < varCount - 1; j++) {
                 den[j] = den[j + 1];
             }
@@ -546,7 +538,6 @@ void cleanup_all() {
 }
 
 // ─── VARIABLE FILE PERSISTENCE ────────────────────────────────
-// DISABLED - These functions were corrupting string variables
 void save_vars_to_temp() {
     printf("🐾 DEBUG: save_vars_to_temp() called - DISABLED\n");
     return;
