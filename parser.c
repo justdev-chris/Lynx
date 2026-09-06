@@ -308,7 +308,7 @@ double parse_primary() {
         }
         
         Token hayTok = scanToken();
-        Token comma = scanToken();
+        scanToken(); // comma
         Token needleTok = scanToken();
         
         if (hayTok.type != TOKEN_STRING && hayTok.type != TOKEN_IDENTIFIER) {
@@ -361,7 +361,7 @@ double parse_primary() {
         }
         
         Token strTok = scanToken();
-        Token comma = scanToken();
+        scanToken(); // comma
         Token delimTok = scanToken();
         
         if (strTok.type != TOKEN_STRING && strTok.type != TOKEN_IDENTIFIER) {
@@ -427,9 +427,9 @@ double parse_primary() {
         }
         
         Token srcTok = scanToken();
-        Token comma1 = scanToken();
+        scanToken(); // comma1
         Token oldTok = scanToken();
-        Token comma2 = scanToken();
+        scanToken(); // comma2
         Token newTok = scanToken();
         
         if (srcTok.type != TOKEN_STRING && srcTok.type != TOKEN_IDENTIFIER) {
@@ -609,20 +609,17 @@ int check_condition() {
     return result != 0;
 }
 
-// FIXED: Added parse_block_ex for skipping branches without executing (bug #3)
 static void parse_block_ex(int execute) {
     Token lbrace = peekToken();
     if (lbrace.type == TOKEN_LBRACE) {
-        scanToken(); // consume {
+        scanToken();
         if (execute) {
             while (peekToken().type != TOKEN_RBRACE && peekToken().type != TOKEN_EOF) {
                 parse_statement();
                 if (lynx_error) break;
-                // Check return flag
                 if (lynx_return_flag) return;
             }
         } else {
-            // Skip block by counting braces
             int depth = 1;
             while (depth > 0 && peekToken().type != TOKEN_EOF) {
                 Token t = scanToken();
@@ -636,17 +633,15 @@ static void parse_block_ex(int execute) {
         if (execute) {
             parse_statement();
         } else {
-            // Skip a single statement
-            scanToken(); // consume it
+            scanToken();
         }
     }
 }
 
 void parse_block() {
-    parse_block_ex(1); // execute = true
+    parse_block_ex(1);
 }
 
-// FIXED: String comparison in parse_logic_expression (bug #4)
 int parse_logic_expression() {
     Token t = peekToken();
     
@@ -656,26 +651,17 @@ int parse_logic_expression() {
         return !result;
     }
 
-    // Check if this is a string comparison
-    // Pattern: identifier == "string" or "string" == identifier or identifier == identifier
-    Token leftTok = peekToken();
-    Token nextTok = peekToken();
-    // We need to peek ahead to detect string comparison
-    // Save scanner state to peek ahead safely
+    // Check for string comparison
     Scanner checkpoint = scanner;
     Token first = scanToken();
     Token op = peekToken();
     if ((op.type == TOKEN_EQ || op.type == TOKEN_NE) && 
         (first.type == TOKEN_STRING || first.type == TOKEN_IDENTIFIER)) {
-        // Check if right side is string or identifier
-        scanToken(); // consume op
+        scanToken();
         Token right = peekToken();
         if (right.type == TOKEN_STRING || right.type == TOKEN_IDENTIFIER) {
-            // This is a string comparison!
-            // Restore scanner and do string comparison
             scanner = checkpoint;
             
-            // Parse left operand
             Token left = scanToken();
             char leftStr[4096];
             if (left.type == TOKEN_STRING) {
@@ -688,17 +674,15 @@ int parse_logic_expression() {
                 leftStr[sizeof(leftStr) - 1] = '\0';
             }
             
-            // Get operator
             Token opToken = scanToken();
             
-            // Parse right operand
-            Token right = scanToken();
+            Token rightTok = scanToken();
             char rightStr[4096];
-            if (right.type == TOKEN_STRING) {
-                unescape_string_token(right, rightStr, sizeof(rightStr));
+            if (rightTok.type == TOKEN_STRING) {
+                unescape_string_token(rightTok, rightStr, sizeof(rightStr));
             } else {
                 char name[64];
-                safe_token_to_string(right, name, sizeof(name));
+                safe_token_to_string(rightTok, name, sizeof(name));
                 char* val = getVarString(name);
                 strncpy(rightStr, val, sizeof(rightStr) - 1);
                 rightStr[sizeof(rightStr) - 1] = '\0';
@@ -708,7 +692,6 @@ int parse_logic_expression() {
             if (opToken.type == TOKEN_EQ) return cmp == 0;
             else return cmp != 0;
         }
-        // Not a string comparison, restore and do numeric
         scanner = checkpoint;
     } else {
         scanner = checkpoint;
@@ -718,10 +701,15 @@ int parse_logic_expression() {
     double left = parse_expression();
     if (lynx_error) return 0;
 
-    double right = parse_expression();
-    if (lynx_error) return 0;
+    Token op2 = peekToken();
+    if (op2.type == TOKEN_EQ || op2.type == TOKEN_NE || 
+        op2.type == TOKEN_GT || op2.type == TOKEN_LT || 
+        op2.type == TOKEN_GE || op2.type == TOKEN_LE) {
+        scanToken();
+        double right = parse_expression();
+        if (lynx_error) return 0;
 
-        switch (op.type) {
+        switch (op2.type) {
             case TOKEN_EQ: return left == right;
             case TOKEN_NE: return left != right;
             case TOKEN_GT: return left > right;
@@ -1108,32 +1096,22 @@ void check_file(const char* path) {
 void parse_statement() {
     Token t = scanToken();
 
-    // FIXED: Handle Return statement (bug #7)
+    // Handle Return statement
     if (t.type == TOKEN_RETURN) {
-        // Check if there's a return value
         Token next = peekToken();
         double returnValue = 0;
         
-        if (next.type != TOKEN_EOF) {
-            // There's a return value
+        if (next.type != TOKEN_EOF && next.type != TOKEN_SEMICOLON) {
             returnValue = parse_expression();
             if (lynx_error) return;
         }
         
-        // Check for semicolon
         Token semi = scanToken();
-        if (semi.type != TOKEN_EOF) {
-            // Semicolon is optional at end of file, but require it otherwise
-            if (semi.type != TOKEN_SEMICOLON && semi.type != TOKEN_EOF) {
-                // Allow EOF after return
-                if (semi.type != TOKEN_EOF) {
-                    setErrorF("Return expects ';' after expression");
-                    return;
-                }
-            }
+        if (semi.type != TOKEN_EOF && semi.type != TOKEN_SEMICOLON) {
+            setErrorF("Return expects ';' after expression");
+            return;
         }
         
-        // Set the return flag
         lynx_return_flag = 1;
         lynx_return_value = returnValue;
         return;
@@ -1144,40 +1122,30 @@ void parse_statement() {
         if (lynx_error) return;
         
         if (cond) {
-            // Condition true → execute If body
             parse_block_ex(1);
             
-            // Skip any following Else / Else If so it is NOT executed
             while (peekToken().type == TOKEN_ELSE) {
-                scanToken(); // consume Else
+                scanToken();
                 
                 if (peekToken().type == TOKEN_IF) {
-                    // Else If <cond> { ... }
-                    // Skip the condition expression and the block
-                    scanToken(); // consume If
-                    // Skip the condition by parsing (but ignore result)
+                    scanToken();
                     parse_logic_expression();
                     if (lynx_error) clearError();
-                    parse_block_ex(0); // skip the body
+                    parse_block_ex(0);
                 } else {
-                    // Plain Else { ... }
-                    parse_block_ex(0); // skip the body
+                    parse_block_ex(0);
                     break;
                 }
             }
         } else {
-            // Condition false → skip If body
             parse_block_ex(0);
             
-            // Execute Else / Else If if present
             if (peekToken().type == TOKEN_ELSE) {
-                scanToken(); // consume Else
+                scanToken();
                 
                 if (peekToken().type == TOKEN_IF) {
-                    // Else If → treat as a normal If statement
                     parse_statement();
                 } else {
-                    // Plain Else
                     parse_block_ex(1);
                 }
             }
