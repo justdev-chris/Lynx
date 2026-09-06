@@ -105,11 +105,6 @@ void runFile(const char* path, int argc, char** argv) {
         buf[read] = '\0';
         fclose(file);
 
-        // Save variables to temp file BEFORE running script (ONLY if not preserving)
-        if (!preserve_vars) {
-            save_vars_to_temp();
-        }
-
         // Strip UTF-8 BOM (EF BB BF)
         if (read >= 3 &&
             (unsigned char)buf[0] == 0xEF &&
@@ -130,11 +125,6 @@ void runFile(const char* path, int argc, char** argv) {
             }
         }
         scanner = previousScanner;
-
-        // Restore variables from temp file (ONLY if not preserving)
-        if (!preserve_vars) {
-            load_vars_from_temp();
-        }
 
         free(buf);
     } else {
@@ -189,7 +179,7 @@ int main(int argc, char* argv[]) {
             // Clear any previous error state
             clearError();
 
-            // Set project name and author BEFORE enabling preserve_vars
+            // Set project name and author BEFORE running script
             if (argc >= 3) {
                 setVarString("__project_name", argv[2]);
             } else {
@@ -201,9 +191,7 @@ int main(int argc, char* argv[]) {
                 setVarString("__author", "Anonymous");
             }
             
-            preserve_vars = 1;
             runFile("scripts/init.lnx", 0, NULL);
-            preserve_vars = 0;
             return 0;
         } else if (STRICMP(argv[1], "add") == 0) {
             if (argc >= 3) {
