@@ -17,7 +17,7 @@ extern char* loaded_packages[64];
 extern int loaded_pkg_count;
 extern TryState try_state;
 
-extern double parse_expression();
+extern Value parse_expression();
 extern void parse_block();
 extern void setVar(const char* name, double value);
 extern void setVarString(const char* name, const char* value);
@@ -196,10 +196,10 @@ static void parse_array() {
     int count = 0;
     double values[256];
     while (peekToken().type != TOKEN_RBRACKET && peekToken().type != TOKEN_EOF) {
-        double val = parse_expression();
+        Value val = parse_expression();
         if (lynx_error) return;
         if (count < 256) {
-            values[count++] = val;
+            values[count++] = val.type == VAR_NUMBER ? val.value.numValue : 0;
         }
         if (peekToken().type == TOKEN_COMMA) scanToken();
     }
@@ -451,67 +451,17 @@ int pawcom_parse_statement(Token t) {
             return 1;
         }
 
-        // Check if it's a string expression
-        Token first = peekToken();
-        if (first.type == TOKEN_STRING || first.type == TOKEN_IDENTIFIER) {
-            char result[4096] = "";
-            
-            while (1) {
-                Token next = peekToken();
-                
-                // If next token is a command, stop
-                if (is_command_token(next.type)) {
-                    break;
-                }
-                
-                Token val = scanToken();
-                
-                if (val.type == TOKEN_EOF || val.type == TOKEN_ERROR) {
-                    break;
-                }
-                
-                if (val.type == TOKEN_STRING) {
-                    char str[4096];
-                    unescape_string_token(val, str, sizeof(str));
-                    strncat(result, str, sizeof(result) - strlen(result) - 1);
-                } else if (val.type == TOKEN_IDENTIFIER) {
-                    char name[64];
-                    snprintf(name, sizeof(name), "%.*s", val.length, val.start);
-
-                    // Prefer string variable even if empty. Only fall back to number
-                    // when the variable is not a string (or does not exist).
-                    Variable* v = findVar(name);
-                    if (v && v->type == VAR_STRING) {
-                        const char* s = v->value.strValue ? v->value.strValue : "";
-                        strncat(result, s, sizeof(result) - strlen(result) - 1);
-                    } else {
-                        double num = getVar(name);
-                        char numStr[32];
-                        snprintf(numStr, sizeof(numStr), "%.5f", num);
-                        strncat(result, numStr, sizeof(result) - strlen(result) - 1);
-                    }
-                } else if (val.type == TOKEN_NUMBER) {
-                    char numStr[32];
-                    snprintf(numStr, sizeof(numStr), "%.5f", atof(val.start));
-                    strncat(result, numStr, sizeof(result) - strlen(result) - 1);
-                } else {
-                    if (val.type != TOKEN_PLUS) {
-                        char* text = getTokenText(val);
-                        setErrorF("Set expects string, identifier, or number, got '%s' (type: %s)",
-                                  text, tokenTypeToString(val.type));
-                        printf("%s\n", lynx_error);
-                        clearError();
-                        return 1;
-                    }
-                    continue;
-                }
+        // Parse the expression - now handles both strings and numbers
+        Value val = parse_expression();
+        if (lynx_error) return 1;
+        
+        if (val.type == VAR_NUMBER) {
+            setVar(varName, val.value.numValue);
+        } else if (val.type == VAR_STRING) {
+            setVarString(varName, val.value.strValue ? val.value.strValue : "");
+            if (val.value.strValue) {
+                free(val.value.strValue);
             }
-            setVarString(varName, result);
-        } else {
-            // Numeric expression
-            double value = parse_expression();
-            if (lynx_error) return 1;
-            setVar(varName, value);
         }
         return 1;
     }
