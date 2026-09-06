@@ -35,10 +35,41 @@ extern char* getTokenText(Token t);
 extern Variable* findVar(const char* name);
 extern Variable den[];
 extern int varCount;
+extern int lynx_return_flag;
+extern double lynx_return_value;
 
 // Thread-local storage for str_replace result (caller must use immediately)
 #define STR_REPLACE_BUFFER_SIZE 65536
 static char str_replace_buffer[STR_REPLACE_BUFFER_SIZE];
+
+// Unescape a string token (handles \", \\, \n, \t, \r)
+static void unescape_string_token(Token t, char* out, size_t outlen) {
+    if (!out || outlen < 1) return;
+    out[0] = '\0';
+    if (t.type != TOKEN_STRING || !t.start || t.length < 2) return;
+
+    const char* src = t.start + 1;          // skip opening "
+    int srcLen = t.length - 2;              // exclude both quotes
+    size_t j = 0;
+
+    for (int i = 0; i < srcLen && j < outlen - 1; i++) {
+        if (src[i] == '\\' && i + 1 < srcLen) {
+            char esc = src[i + 1];
+            switch (esc) {
+                case 'n':  out[j++] = '\n'; break;
+                case 't':  out[j++] = '\t'; break;
+                case 'r':  out[j++] = '\r'; break;
+                case '\\': out[j++] = '\\'; break;
+                case '"':  out[j++] = '"';  break;
+                default:   out[j++] = esc;  break;
+            }
+            i++; // skip the escaped character
+        } else {
+            out[j++] = src[i];
+        }
+    }
+    out[j] = '\0';
+}
 
 static char* str_trim_copy(const char* str) {
     if (!str) return strdup("");
@@ -355,11 +386,7 @@ int pawcom_parse_statement(Token t) {
             
             if (val.type == TOKEN_STRING) {
                 char str[4096];
-                if (val.length > 1) {
-                    snprintf(str, sizeof(str), "%.*s", val.length - 2, val.start + 1);
-                } else {
-                    str[0] = '\0';
-                }
+                unescape_string_token(val, str, sizeof(str));
                 strncat(result, str, sizeof(result) - strlen(result) - 1);
             } else if (val.type == TOKEN_IDENTIFIER) {
                 char name[64];
@@ -445,11 +472,7 @@ int pawcom_parse_statement(Token t) {
                 
                 if (val.type == TOKEN_STRING) {
                     char str[4096];
-                    if (val.length > 1) {
-                        snprintf(str, sizeof(str), "%.*s", val.length - 2, val.start + 1);
-                    } else {
-                        str[0] = '\0';
-                    }
+                    unescape_string_token(val, str, sizeof(str));
                     strncat(result, str, sizeof(result) - strlen(result) - 1);
                 } else if (val.type == TOKEN_IDENTIFIER) {
                     char name[64];
@@ -518,7 +541,7 @@ int pawcom_parse_statement(Token t) {
             return 1;
         }
         char pkgName[256];
-        snprintf(pkgName, sizeof(pkgName), "%.*s", pkgToken.length - 2, pkgToken.start + 1);
+        unescape_string_token(pkgToken, pkgName, sizeof(pkgName));
         kitty_port(pkgName);
         return 1;
     }
@@ -533,7 +556,7 @@ int pawcom_parse_statement(Token t) {
             return 1;
         }
         char filePath[LYNX_MAX_PATH];
-        snprintf(filePath, sizeof(filePath), "%.*s", pathToken.length - 2, pathToken.start + 1);
+        unescape_string_token(pathToken, filePath, sizeof(filePath));
         runFile(filePath, 0, NULL);
         return 1;
     }
@@ -556,7 +579,7 @@ int pawcom_parse_statement(Token t) {
         char content[MAX_STRING];
         
         if (pathToken.type == TOKEN_STRING) {
-            snprintf(path, sizeof(path), "%.*s", pathToken.length - 2, pathToken.start + 1);
+            unescape_string_token(pathToken, path, sizeof(path));
         } else {
             char name[64];
             snprintf(name, sizeof(name), "%.*s", pathToken.length, pathToken.start);
@@ -570,7 +593,7 @@ int pawcom_parse_statement(Token t) {
         }
         
         if (contentToken.type == TOKEN_STRING) {
-            snprintf(content, sizeof(content), "%.*s", contentToken.length - 2, contentToken.start + 1);
+            unescape_string_token(contentToken, content, sizeof(content));
         } else {
             char name[64];
             snprintf(name, sizeof(name), "%.*s", contentToken.length, contentToken.start);
@@ -603,7 +626,7 @@ int pawcom_parse_statement(Token t) {
         
         char path[LYNX_MAX_PATH];
         if (pathToken.type == TOKEN_STRING) {
-            snprintf(path, sizeof(path), "%.*s", pathToken.length - 2, pathToken.start + 1);
+            unescape_string_token(pathToken, path, sizeof(path));
         } else {
             char name[64];
             snprintf(name, sizeof(name), "%.*s", pathToken.length, pathToken.start);
@@ -648,7 +671,7 @@ int pawcom_parse_statement(Token t) {
         
         char path[LYNX_MAX_PATH];
         if (pathToken.type == TOKEN_STRING) {
-            snprintf(path, sizeof(path), "%.*s", pathToken.length - 2, pathToken.start + 1);
+            unescape_string_token(pathToken, path, sizeof(path));
         } else {
             char name[64];
             snprintf(name, sizeof(name), "%.*s", pathToken.length, pathToken.start);
@@ -683,7 +706,7 @@ int pawcom_parse_statement(Token t) {
         
         char path[LYNX_MAX_PATH];
         if (pathToken.type == TOKEN_STRING) {
-            snprintf(path, sizeof(path), "%.*s", pathToken.length - 2, pathToken.start + 1);
+            unescape_string_token(pathToken, path, sizeof(path));
         } else {
             char name[64];
             snprintf(name, sizeof(name), "%.*s", pathToken.length, pathToken.start);
@@ -710,7 +733,7 @@ int pawcom_parse_statement(Token t) {
             return 1;
         }
         char cmd[512];
-        snprintf(cmd, sizeof(cmd), "%.*s", cmdToken.length - 2, cmdToken.start + 1);
+        unescape_string_token(cmdToken, cmd, sizeof(cmd));
         int result = system(cmd);
         if (result != 0) {
             setErrorF("Run: Command failed with exit code %d", result);
@@ -728,7 +751,7 @@ int pawcom_parse_statement(Token t) {
         
         char path[LYNX_MAX_PATH];
         if (pathToken.type == TOKEN_STRING) {
-            snprintf(path, sizeof(path), "%.*s", pathToken.length - 2, pathToken.start + 1);
+            unescape_string_token(pathToken, path, sizeof(path));
         } else {
             char name[64];
             snprintf(name, sizeof(name), "%.*s", pathToken.length, pathToken.start);
@@ -755,7 +778,7 @@ int pawcom_parse_statement(Token t) {
             return 1;
         }
         char name[256];
-        snprintf(name, sizeof(name), "%.*s", nameToken.length - 2, nameToken.start + 1);
+        unescape_string_token(nameToken, name, sizeof(name));
         const char* value = getenv(name);
         if (value) {
             setVarString("__result", value);
@@ -775,7 +798,7 @@ int pawcom_parse_statement(Token t) {
         
         char str[MAX_STRING];
         if (strToken.type == TOKEN_STRING) {
-            snprintf(str, sizeof(str), "%.*s", strToken.length - 2, strToken.start + 1);
+            unescape_string_token(strToken, str, sizeof(str));
         } else {
             char name[64];
             snprintf(name, sizeof(name), "%.*s", strToken.length, strToken.start);
@@ -801,7 +824,7 @@ int pawcom_parse_statement(Token t) {
         
         char str[MAX_STRING];
         if (strToken.type == TOKEN_STRING) {
-            snprintf(str, sizeof(str), "%.*s", strToken.length - 2, strToken.start + 1);
+            unescape_string_token(strToken, str, sizeof(str));
         } else {
             char name[64];
             snprintf(name, sizeof(name), "%.*s", strToken.length, strToken.start);
@@ -837,7 +860,7 @@ int pawcom_parse_statement(Token t) {
         char delim[256];
         
         if (strToken.type == TOKEN_STRING) {
-            snprintf(str, sizeof(str), "%.*s", strToken.length - 2, strToken.start + 1);
+            unescape_string_token(strToken, str, sizeof(str));
         } else {
             char name[64];
             snprintf(name, sizeof(name), "%.*s", strToken.length, strToken.start);
@@ -851,7 +874,7 @@ int pawcom_parse_statement(Token t) {
         }
         
         if (delimToken.type == TOKEN_STRING) {
-            snprintf(delim, sizeof(delim), "%.*s", delimToken.length - 2, delimToken.start + 1);
+            unescape_string_token(delimToken, delim, sizeof(delim));
         } else {
             char name[64];
             snprintf(name, sizeof(name), "%.*s", delimToken.length, delimToken.start);
@@ -895,7 +918,7 @@ int pawcom_parse_statement(Token t) {
         char needle[MAX_STRING];
         
         if (hayToken.type == TOKEN_STRING) {
-            snprintf(hay, sizeof(hay), "%.*s", hayToken.length - 2, hayToken.start + 1);
+            unescape_string_token(hayToken, hay, sizeof(hay));
         } else {
             char name[64];
             snprintf(name, sizeof(name), "%.*s", hayToken.length, hayToken.start);
@@ -909,7 +932,7 @@ int pawcom_parse_statement(Token t) {
         }
         
         if (needleToken.type == TOKEN_STRING) {
-            snprintf(needle, sizeof(needle), "%.*s", needleToken.length - 2, needleToken.start + 1);
+            unescape_string_token(needleToken, needle, sizeof(needle));
         } else {
             char name[64];
             snprintf(name, sizeof(name), "%.*s", needleToken.length, needleToken.start);
@@ -950,7 +973,7 @@ int pawcom_parse_statement(Token t) {
         char newStr[MAX_STRING];
         
         if (srcToken.type == TOKEN_STRING) {
-            snprintf(src, sizeof(src), "%.*s", srcToken.length - 2, srcToken.start + 1);
+            unescape_string_token(srcToken, src, sizeof(src));
         } else {
             char name[64];
             snprintf(name, sizeof(name), "%.*s", srcToken.length, srcToken.start);
@@ -964,7 +987,7 @@ int pawcom_parse_statement(Token t) {
         }
         
         if (oldToken.type == TOKEN_STRING) {
-            snprintf(oldStr, sizeof(oldStr), "%.*s", oldToken.length - 2, oldToken.start + 1);
+            unescape_string_token(oldToken, oldStr, sizeof(oldStr));
         } else {
             char name[64];
             snprintf(name, sizeof(name), "%.*s", oldToken.length, oldToken.start);
@@ -978,7 +1001,7 @@ int pawcom_parse_statement(Token t) {
         }
         
         if (newToken.type == TOKEN_STRING) {
-            snprintf(newStr, sizeof(newStr), "%.*s", newToken.length - 2, newToken.start + 1);
+            unescape_string_token(newToken, newStr, sizeof(newStr));
         } else {
             char name[64];
             snprintf(name, sizeof(name), "%.*s", newToken.length, newToken.start);
