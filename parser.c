@@ -1091,16 +1091,40 @@ void parse_statement() {
         if (lynx_error) return;
         
         if (cond) {
+            // Condition true → execute If body
             parse_block();
-        } else {
-            Scanner save = scanner;
-            parse_block();
-            scanner = save;
-            if (peekToken().type == TOKEN_ELSE) {
-                scanToken();
+            
+            // Skip any following Else / Else If so it is NOT executed
+            while (peekToken().type == TOKEN_ELSE) {
+                scanToken(); // consume Else
+                
                 if (peekToken().type == TOKEN_IF) {
+                    // Else If <cond> { ... }
+                    // Skip the condition expression and the block
+                    scanToken(); // consume If
+                    // Skip the condition by parsing (but ignore result)
+                    parse_logic_expression();
+                    if (lynx_error) clearError();
+                    parse_block(); // skip the body
+                } else {
+                    // Plain Else { ... }
+                    parse_block(); // skip the body
+                    break;
+                }
+            }
+        } else {
+            // Condition false → skip If body
+            parse_block();
+            
+            // Execute Else / Else If if present
+            if (peekToken().type == TOKEN_ELSE) {
+                scanToken(); // consume Else
+                
+                if (peekToken().type == TOKEN_IF) {
+                    // Else If → treat as a normal If statement
                     parse_statement();
                 } else {
+                    // Plain Else
                     parse_block();
                 }
             }
