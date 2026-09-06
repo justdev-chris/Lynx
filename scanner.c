@@ -288,19 +288,38 @@ Token scanToken() {
             if (peek() == '=') { advance(); return makeToken(TOKEN_LE); }
             return makeToken(TOKEN_LT);
         case '"': {
-            while (peek() != '"' && !isAtEnd()) {
-                if (peek() == '\n') {
+            // Fixed: properly handle escape sequences so \" does not terminate the string
+            while (!isAtEnd()) {
+                char ch = peek();
+
+                if (ch == '"') {
+                    // unescaped quote → end of string
+                    break;
+                }
+
+                if (ch == '\\') {
+                    // escape sequence – consume the backslash + the next character
+                    advance();               // consume '\'
+                    if (isAtEnd()) break;
+                    advance();               // consume the escaped character
+                    continue;
+                }
+
+                if (ch == '\n') {
                     scanner.line++;
                     scanner.col = 1;
                 }
+
                 advance();
             }
+
             if (isAtEnd()) {
                 Token t = makeToken(TOKEN_ERROR);
                 setErrorF("Unterminated string literal", t.line, t.col);
                 return t;
             }
-            advance();
+
+            advance(); // consume the closing "
             return makeToken(TOKEN_STRING);
         }
     }
