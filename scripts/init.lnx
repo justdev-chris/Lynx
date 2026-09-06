@@ -1,6 +1,6 @@
 Roar "🐾 Initializing Lynx project..."
 
-# ===== MAXIMUM DEBUGGING =====
+# ===== MAXIMUM DEBUGGING (prints to Actions log) =====
 Roar "=== DEBUG: __project_name = " + __project_name
 Roar "=== DEBUG: __author = " + __author
 
