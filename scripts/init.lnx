@@ -6,9 +6,7 @@ Set author = __author
 If projectName = "" {
     Roar "❌ Usage: lynx init <project_name> [author]"
     Roar "⚠️ Project not created"
-}
-Else {
-    Set author = __author
+} Else {
     Set tomlContent = "[package]\n"
     Set tomlContent = tomlContent + "name = \""
     Set tomlContent = tomlContent + projectName
