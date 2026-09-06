@@ -219,50 +219,88 @@ void setErrorF(const char* format, ...) {
     setError(buffer, line, col);
 }
 
-// ─── PARSING ──────────────────────────────────────────────────────
+// ─── EXPRESSION PARSING (returns Value) ────────────────────────
 
-double parse_primary() {
+static Value parse_primary() {
+    Value result = {0};
+    result.type = VAR_NUMBER;
+    result.value.numValue = 0;
+    
     Token t = scanToken();
-    if (t.type == TOKEN_NUMBER) return atof(t.start);
+    
+    if (t.type == TOKEN_NUMBER) {
+        result.type = VAR_NUMBER;
+        result.value.numValue = atof(t.start);
+        return result;
+    }
+    
+    if (t.type == TOKEN_STRING) {
+        char str[4096];
+        unescape_string_token(t, str, sizeof(str));
+        result.type = VAR_STRING;
+        result.value.strValue = malloc(strlen(str) + 1);
+        if (result.value.strValue) {
+            strcpy(result.value.strValue, str);
+        } else {
+            result.type = VAR_NUMBER;
+            result.value.numValue = 0;
+        }
+        return result;
+    }
+    
+    if (t.type == TOKEN_IDENTIFIER) {
+        char varName[64];
+        safe_token_to_string(t, varName, sizeof(varName));
+        Variable* v = findVar(varName);
+        if (v) {
+            if (v->type == VAR_NUMBER) {
+                result.type = VAR_NUMBER;
+                result.value.numValue = v->value.numValue;
+            } else if (v->type == VAR_STRING) {
+                result.type = VAR_STRING;
+                result.value.strValue = malloc(strlen(v->value.strValue) + 1);
+                if (result.value.strValue) {
+                    strcpy(result.value.strValue, v->value.strValue);
+                } else {
+                    result.type = VAR_NUMBER;
+                    result.value.numValue = 0;
+                }
+            }
+        }
+        return result;
+    }
     
     // ─── LEN() ──────────────────────────────────────────────────
     if (t.type == TOKEN_LEN) {
         Token lparen = scanToken();
         if (lparen.type != TOKEN_LPAREN) {
             setErrorF("Len expects '('");
-            return 0;
+            return result;
         }
         
         Token arg = scanToken();
+        char str[4096] = {0};
         if (arg.type == TOKEN_IDENTIFIER) {
             char name[64];
             safe_token_to_string(arg, name, sizeof(name));
-            char* str = getVarString(name);
-            double result = (double)strlen(str);
-            setVar("__result", result);
-            
-            Token rparen = scanToken();
-            if (rparen.type != TOKEN_RPAREN) {
-                setErrorF("Len expects ')'");
-                return 0;
-            }
-            return result;
+            char* val = getVarString(name);
+            strncpy(str, val, sizeof(str) - 1);
         } else if (arg.type == TOKEN_STRING) {
-            char str[4096];
             unescape_string_token(arg, str, sizeof(str));
-            double result = (double)strlen(str);
-            setVar("__result", result);
-            
-            Token rparen = scanToken();
-            if (rparen.type != TOKEN_RPAREN) {
-                setErrorF("Len expects ')'");
-                return 0;
-            }
-            return result;
         } else {
             setErrorF("Len expects a string or variable name");
-            return 0;
         }
+        
+        Token rparen = scanToken();
+        if (rparen.type != TOKEN_RPAREN) {
+            setErrorF("Len expects ')'");
+        }
+        
+        double resultVal = (double)strlen(str);
+        setVar("__result", resultVal);
+        result.type = VAR_NUMBER;
+        result.value.numValue = resultVal;
+        return result;
     }
     
     // ─── getenv() ──────────────────────────────────────────────
@@ -270,33 +308,41 @@ double parse_primary() {
         Token lparen = scanToken();
         if (lparen.type != TOKEN_LPAREN) {
             setErrorF("getenv expects '('");
-            return 0;
+            return result;
         }
         
         Token arg = scanToken();
         if (arg.type != TOKEN_STRING) {
             setErrorF("getenv expects a string");
-            return 0;
+            return result;
         }
         
         char name[256];
         unescape_string_token(arg, name, sizeof(name));
-        
         const char* value = getenv(name);
         
         Token rparen = scanToken();
         if (rparen.type != TOKEN_RPAREN) {
             setErrorF("getenv expects ')'");
-            return 0;
+            return result;
         }
         
         if (value) {
             setVarString("__result", value);
-            return 0;
+            result.type = VAR_STRING;
+            result.value.strValue = malloc(strlen(value) + 1);
+            if (result.value.strValue) {
+                strcpy(result.value.strValue, value);
+            }
         } else {
             setVarString("__result", "");
-            return 0;
+            result.type = VAR_STRING;
+            result.value.strValue = malloc(1);
+            if (result.value.strValue) {
+                result.value.strValue[0] = '\0';
+            }
         }
+        return result;
     }
     
     // ─── KittyCheckIfStringContains() ──────────────────────────
@@ -304,7 +350,7 @@ double parse_primary() {
         Token lparen = scanToken();
         if (lparen.type != TOKEN_LPAREN) {
             setErrorF("KittyCheckIfStringContains expects '('");
-            return 0;
+            return result;
         }
         
         Token hayTok = scanToken();
@@ -313,14 +359,14 @@ double parse_primary() {
         
         if (hayTok.type != TOKEN_STRING && hayTok.type != TOKEN_IDENTIFIER) {
             setErrorF("KittyCheckIfStringContains expects string or variable");
-            return 0;
+            return result;
         }
         if (needleTok.type != TOKEN_STRING && needleTok.type != TOKEN_IDENTIFIER) {
             setErrorF("KittyCheckIfStringContains expects string or variable");
-            return 0;
+            return result;
         }
         
-        char hay[4096], needle[4096];
+        char hay[4096] = {0}, needle[4096] = {0};
         if (hayTok.type == TOKEN_STRING) {
             unescape_string_token(hayTok, hay, sizeof(hay));
         } else {
@@ -328,7 +374,6 @@ double parse_primary() {
             safe_token_to_string(hayTok, name, sizeof(name));
             char* val = getVarString(name);
             strncpy(hay, val, sizeof(hay) - 1);
-            hay[sizeof(hay) - 1] = '\0';
         }
         
         if (needleTok.type == TOKEN_STRING) {
@@ -338,18 +383,19 @@ double parse_primary() {
             safe_token_to_string(needleTok, name, sizeof(name));
             char* val = getVarString(name);
             strncpy(needle, val, sizeof(needle) - 1);
-            needle[sizeof(needle) - 1] = '\0';
         }
         
         Token rparen = scanToken();
         if (rparen.type != TOKEN_RPAREN) {
             setErrorF("KittyCheckIfStringContains expects ')'");
-            return 0;
+            return result;
         }
         
-        int result = str_contains(hay, needle);
-        setVar("__result", result ? 1.0 : 0.0);
-        return result ? 1.0 : 0.0;
+        int contains = str_contains(hay, needle);
+        setVar("__result", contains ? 1.0 : 0.0);
+        result.type = VAR_NUMBER;
+        result.value.numValue = contains ? 1.0 : 0.0;
+        return result;
     }
     
     // ─── KittySplitString() ─────────────────────────────────────
@@ -357,7 +403,7 @@ double parse_primary() {
         Token lparen = scanToken();
         if (lparen.type != TOKEN_LPAREN) {
             setErrorF("KittySplitString expects '('");
-            return 0;
+            return result;
         }
         
         Token strTok = scanToken();
@@ -366,14 +412,14 @@ double parse_primary() {
         
         if (strTok.type != TOKEN_STRING && strTok.type != TOKEN_IDENTIFIER) {
             setErrorF("KittySplitString expects string or variable");
-            return 0;
+            return result;
         }
         if (delimTok.type != TOKEN_STRING && delimTok.type != TOKEN_IDENTIFIER) {
             setErrorF("KittySplitString expects string or variable");
-            return 0;
+            return result;
         }
         
-        char str[4096], delim[256];
+        char str[4096] = {0}, delim[256] = {0};
         if (strTok.type == TOKEN_STRING) {
             unescape_string_token(strTok, str, sizeof(str));
         } else {
@@ -381,7 +427,6 @@ double parse_primary() {
             safe_token_to_string(strTok, name, sizeof(name));
             char* val = getVarString(name);
             strncpy(str, val, sizeof(str) - 1);
-            str[sizeof(str) - 1] = '\0';
         }
         
         if (delimTok.type == TOKEN_STRING) {
@@ -391,7 +436,6 @@ double parse_primary() {
             safe_token_to_string(delimTok, name, sizeof(name));
             char* val = getVarString(name);
             strncpy(delim, val, sizeof(delim) - 1);
-            delim[sizeof(delim) - 1] = '\0';
         }
         
         int count = 0;
@@ -412,10 +456,12 @@ double parse_primary() {
         Token rparen = scanToken();
         if (rparen.type != TOKEN_RPAREN) {
             setErrorF("KittySplitString expects ')'");
-            return 0;
+            return result;
         }
         
-        return (double)count;
+        result.type = VAR_NUMBER;
+        result.value.numValue = (double)count;
+        return result;
     }
     
     // ─── KittyReplaceString() ───────────────────────────────────
@@ -423,7 +469,7 @@ double parse_primary() {
         Token lparen = scanToken();
         if (lparen.type != TOKEN_LPAREN) {
             setErrorF("KittyReplaceString expects '('");
-            return 0;
+            return result;
         }
         
         Token srcTok = scanToken();
@@ -434,18 +480,18 @@ double parse_primary() {
         
         if (srcTok.type != TOKEN_STRING && srcTok.type != TOKEN_IDENTIFIER) {
             setErrorF("KittyReplaceString expects string or variable");
-            return 0;
+            return result;
         }
         if (oldTok.type != TOKEN_STRING && oldTok.type != TOKEN_IDENTIFIER) {
             setErrorF("KittyReplaceString expects string or variable");
-            return 0;
+            return result;
         }
         if (newTok.type != TOKEN_STRING && newTok.type != TOKEN_IDENTIFIER) {
             setErrorF("KittyReplaceString expects string or variable");
-            return 0;
+            return result;
         }
         
-        char src[4096], old[4096], new[4096];
+        char src[4096] = {0}, old[4096] = {0}, new[4096] = {0};
         
         if (srcTok.type == TOKEN_STRING) {
             unescape_string_token(srcTok, src, sizeof(src));
@@ -453,7 +499,6 @@ double parse_primary() {
             char name[64];
             safe_token_to_string(srcTok, name, sizeof(name));
             strncpy(src, getVarString(name), sizeof(src) - 1);
-            src[sizeof(src) - 1] = '\0';
         }
         
         if (oldTok.type == TOKEN_STRING) {
@@ -462,7 +507,6 @@ double parse_primary() {
             char name[64];
             safe_token_to_string(oldTok, name, sizeof(name));
             strncpy(old, getVarString(name), sizeof(old) - 1);
-            old[sizeof(old) - 1] = '\0';
         }
         
         if (newTok.type == TOKEN_STRING) {
@@ -471,19 +515,23 @@ double parse_primary() {
             char name[64];
             safe_token_to_string(newTok, name, sizeof(name));
             strncpy(new, getVarString(name), sizeof(new) - 1);
-            new[sizeof(new) - 1] = '\0';
         }
         
-        char* result = str_replace(src, old, new);
-        setVarString("__result", result);
+        char* replaced = str_replace(src, old, new);
+        setVarString("__result", replaced);
         
         Token rparen = scanToken();
         if (rparen.type != TOKEN_RPAREN) {
             setErrorF("KittyReplaceString expects ')'");
-            return 0;
+            return result;
         }
         
-        return 1.0;
+        result.type = VAR_STRING;
+        result.value.strValue = malloc(strlen(replaced) + 1);
+        if (result.value.strValue) {
+            strcpy(result.value.strValue, replaced);
+        }
+        return result;
     }
     
     // ─── TRIM ──────────────────────────────────────────────────
@@ -491,7 +539,7 @@ double parse_primary() {
         Token lparen = scanToken();
         if (lparen.type != TOKEN_LPAREN) {
             setErrorF("Trim expects '('");
-            return 0;
+            return result;
         }
         
         Token arg = scanToken();
@@ -507,107 +555,247 @@ double parse_primary() {
             trimmed = str_trim_copy(getVarString(name));
         } else {
             setErrorF("Trim expects string or variable");
-            return 0;
+            return result;
         }
         
         setVarString("__result", trimmed);
-        free(trimmed);
         
         Token rparen = scanToken();
         if (rparen.type != TOKEN_RPAREN) {
             setErrorF("Trim expects ')'");
-            return 0;
+            free(trimmed);
+            return result;
         }
         
-        return 1.0;
-    }
-
-    if (t.type == TOKEN_IDENTIFIER) {
-        char varName[64];
-        safe_token_to_string(t, varName, sizeof(varName));
-        return getVar(varName);
-    }
-
-    if (t.type == TOKEN_STRING) {
-        char str[4096];
-        unescape_string_token(t, str, sizeof(str));
-        setVarString("__result", str);
-        return 0;
-    }
-
-    if (t.type == TOKEN_LPAREN) {
-        double result = parse_expression();
-        if (lynx_error) return 0;
-        Token rparen = scanToken();
-        if (rparen.type != TOKEN_RPAREN) {
-            setErrorF("Expected ')' after expression");
-            return 0;
-        }
+        result.type = VAR_STRING;
+        result.value.strValue = trimmed; // str_trim_copy already malloc'd
         return result;
     }
 
+    if (t.type == TOKEN_LPAREN) {
+        Value val = parse_expression();
+        if (lynx_error) return result;
+        Token rparen = scanToken();
+        if (rparen.type != TOKEN_RPAREN) {
+            setErrorF("Expected ')' after expression");
+        }
+        return val;
+    }
+
     if (t.type == TOKEN_NOT) {
-        double val = parse_primary();
-        if (lynx_error) return 0;
-        return val == 0 ? 1.0 : 0.0;
+        Value val = parse_primary();
+        if (val.type == VAR_NUMBER) {
+            val.value.numValue = (val.value.numValue == 0) ? 1.0 : 0.0;
+        } else {
+            setErrorF("Cannot use Not on a string");
+        }
+        return val;
     }
 
     if (t.type == TOKEN_MINUS) {
-        double val = parse_primary();
-        if (lynx_error) return 0;
-        return -val;
+        Value val = parse_primary();
+        if (val.type == VAR_NUMBER) {
+            val.value.numValue = -val.value.numValue;
+        } else {
+            setErrorF("Cannot negate a string");
+        }
+        return val;
     }
 
     setErrorF("Unexpected token in expression");
-    return 0;
+    return result;
 }
 
-double parse_multiplication() {
-    double result = parse_primary();
-    if (lynx_error) return 0;
+static Value parse_multiplication() {
+    Value result = parse_primary();
+    if (lynx_error) return result;
     
     while (peekToken().type == TOKEN_STAR || peekToken().type == TOKEN_SLASH || peekToken().type == TOKEN_MODULO) {
         Token op = scanToken();
-        double right = parse_primary();
-        if (lynx_error) return 0;
+        Value right = parse_primary();
+        if (lynx_error) return result;
         
-        if (op.type == TOKEN_STAR) result *= right;
-        else if (op.type == TOKEN_SLASH) {
-            if (right == 0) {
-                setErrorF("Division by zero");
-                return 0;
-            }
-            result /= right;
+        if (result.type != VAR_NUMBER || right.type != VAR_NUMBER) {
+            setErrorF("Cannot use * / %% on strings");
+            return result;
         }
-        else if (op.type == TOKEN_MODULO) result = (int)result % (int)right;
+        
+        if (op.type == TOKEN_STAR) {
+            result.value.numValue *= right.value.numValue;
+        } else if (op.type == TOKEN_SLASH) {
+            if (right.value.numValue == 0) {
+                setErrorF("Division by zero");
+                return result;
+            }
+            result.value.numValue /= right.value.numValue;
+        } else if (op.type == TOKEN_MODULO) {
+            result.value.numValue = (int)result.value.numValue % (int)right.value.numValue;
+        }
     }
     return result;
 }
 
-double parse_addition() {
-    double result = parse_multiplication();
-    if (lynx_error) return 0;
+static Value parse_addition() {
+    Value result = parse_multiplication();
+    if (lynx_error) return result;
     
     while (peekToken().type == TOKEN_PLUS || peekToken().type == TOKEN_MINUS) {
         Token op = scanToken();
-        double right = parse_multiplication();
-        if (lynx_error) return 0;
+        Value right = parse_multiplication();
+        if (lynx_error) return result;
         
-        if (op.type == TOKEN_PLUS) result += right;
-        else result -= right;
+        if (op.type == TOKEN_PLUS) {
+            // String concatenation
+            if (result.type == VAR_STRING || right.type == VAR_STRING) {
+                // Convert both to strings
+                char leftStr[4096] = {0};
+                char rightStr[4096] = {0};
+                
+                if (result.type == VAR_STRING && result.value.strValue) {
+                    strncpy(leftStr, result.value.strValue, sizeof(leftStr) - 1);
+                } else if (result.type == VAR_NUMBER) {
+                    snprintf(leftStr, sizeof(leftStr), "%.5f", result.value.numValue);
+                }
+                
+                if (right.type == VAR_STRING && right.value.strValue) {
+                    strncpy(rightStr, right.value.strValue, sizeof(rightStr) - 1);
+                } else if (right.type == VAR_NUMBER) {
+                    snprintf(rightStr, sizeof(rightStr), "%.5f", right.value.numValue);
+                }
+                
+                // Free old string if any
+                if (result.type == VAR_STRING && result.value.strValue) {
+                    free(result.value.strValue);
+                    result.value.strValue = NULL;
+                }
+                
+                result.type = VAR_STRING;
+                result.value.strValue = malloc(strlen(leftStr) + strlen(rightStr) + 1);
+                if (result.value.strValue) {
+                    strcpy(result.value.strValue, leftStr);
+                    strcat(result.value.strValue, rightStr);
+                } else {
+                    result.type = VAR_NUMBER;
+                    result.value.numValue = 0;
+                }
+            } else {
+                // Both are numbers
+                result.value.numValue += right.value.numValue;
+            }
+        } else { // MINUS
+            if (result.type != VAR_NUMBER || right.type != VAR_NUMBER) {
+                setErrorF("Cannot subtract strings");
+                return result;
+            }
+            result.value.numValue -= right.value.numValue;
+        }
     }
     return result;
 }
 
-double parse_expression() {
+Value parse_expression() {
     return parse_addition();
 }
 
 int check_condition() {
-    double result = parse_expression();
+    Value result = parse_expression();
     if (lynx_error) return 0;
-    return result != 0;
+    if (result.type == VAR_STRING) {
+        return result.value.strValue != NULL && strlen(result.value.strValue) > 0;
+    }
+    return result.value.numValue != 0;
 }
+
+// ─── LOGIC EXPRESSION ───────────────────────────────────────────
+
+int parse_logic_expression() {
+    Token t = peekToken();
+    
+    if (t.type == TOKEN_NOT) {
+        scanToken();
+        int result = parse_logic_expression();
+        return !result;
+    }
+
+    // Parse left side as a Value
+    Value left = parse_expression();
+    if (lynx_error) return 0;
+
+    // Check for comparison operators
+    Token op = peekToken();
+    if (op.type == TOKEN_EQ || op.type == TOKEN_NE || 
+        op.type == TOKEN_GT || op.type == TOKEN_LT || 
+        op.type == TOKEN_GE || op.type == TOKEN_LE) {
+        scanToken();
+        Value right = parse_expression();
+        if (lynx_error) return 0;
+
+        // Handle string comparisons
+        if (left.type == VAR_STRING || right.type == VAR_STRING) {
+            char leftStr[4096] = {0};
+            char rightStr[4096] = {0};
+            
+            if (left.type == VAR_STRING && left.value.strValue) {
+                strncpy(leftStr, left.value.strValue, sizeof(leftStr) - 1);
+            } else if (left.type == VAR_NUMBER) {
+                snprintf(leftStr, sizeof(leftStr), "%.5f", left.value.numValue);
+            }
+            
+            if (right.type == VAR_STRING && right.value.strValue) {
+                strncpy(rightStr, right.value.strValue, sizeof(rightStr) - 1);
+            } else if (right.type == VAR_NUMBER) {
+                snprintf(rightStr, sizeof(rightStr), "%.5f", right.value.numValue);
+            }
+            
+            int cmp = strcmp(leftStr, rightStr);
+            switch (op.type) {
+                case TOKEN_EQ: return cmp == 0;
+                case TOKEN_NE: return cmp != 0;
+                case TOKEN_GT: return cmp > 0;
+                case TOKEN_LT: return cmp < 0;
+                case TOKEN_GE: return cmp >= 0;
+                case TOKEN_LE: return cmp <= 0;
+                default: return 0;
+            }
+        }
+
+        // Numeric comparisons
+        double l = left.type == VAR_NUMBER ? left.value.numValue : 0;
+        double r = right.type == VAR_NUMBER ? right.value.numValue : 0;
+        
+        switch (op.type) {
+            case TOKEN_EQ: return l == r;
+            case TOKEN_NE: return l != r;
+            case TOKEN_GT: return l > r;
+            case TOKEN_LT: return l < r;
+            case TOKEN_GE: return l >= r;
+            case TOKEN_LE: return l <= r;
+            default: return 0;
+        }
+    }
+
+    // AND / OR
+    if (peekToken().type == TOKEN_AND) {
+        scanToken();
+        int right = parse_logic_expression();
+        return (left.type == VAR_NUMBER && left.value.numValue != 0) && right;
+    }
+
+    if (peekToken().type == TOKEN_OR) {
+        scanToken();
+        int right = parse_logic_expression();
+        return (left.type == VAR_NUMBER && left.value.numValue != 0) || right;
+    }
+
+    // For non-numeric values, treat as true if they exist
+    if (left.type == VAR_STRING && left.value.strValue) {
+        return 1; // Non-empty string is true
+    }
+    
+    return (left.type == VAR_NUMBER && left.value.numValue != 0);
+}
+
+// ─── BLOCK PARSING ──────────────────────────────────────────────
 
 static void parse_block_ex(int execute) {
     Token lbrace = peekToken();
@@ -642,98 +830,7 @@ void parse_block() {
     parse_block_ex(1);
 }
 
-int parse_logic_expression() {
-    Token t = peekToken();
-    
-    if (t.type == TOKEN_NOT) {
-        scanToken();
-        int result = parse_logic_expression();
-        return !result;
-    }
-
-    // Check for string comparison
-    Scanner checkpoint = scanner;
-    Token first = scanToken();
-    Token op = peekToken();
-    if ((op.type == TOKEN_EQ || op.type == TOKEN_NE) && 
-        (first.type == TOKEN_STRING || first.type == TOKEN_IDENTIFIER)) {
-        scanToken();
-        Token right = peekToken();
-        if (right.type == TOKEN_STRING || right.type == TOKEN_IDENTIFIER) {
-            scanner = checkpoint;
-            
-            Token left = scanToken();
-            char leftStr[4096];
-            if (left.type == TOKEN_STRING) {
-                unescape_string_token(left, leftStr, sizeof(leftStr));
-            } else {
-                char name[64];
-                safe_token_to_string(left, name, sizeof(name));
-                char* val = getVarString(name);
-                strncpy(leftStr, val, sizeof(leftStr) - 1);
-                leftStr[sizeof(leftStr) - 1] = '\0';
-            }
-            
-            Token opToken = scanToken();
-            
-            Token rightTok = scanToken();
-            char rightStr[4096];
-            if (rightTok.type == TOKEN_STRING) {
-                unescape_string_token(rightTok, rightStr, sizeof(rightStr));
-            } else {
-                char name[64];
-                safe_token_to_string(rightTok, name, sizeof(name));
-                char* val = getVarString(name);
-                strncpy(rightStr, val, sizeof(rightStr) - 1);
-                rightStr[sizeof(rightStr) - 1] = '\0';
-            }
-            
-            int cmp = strcmp(leftStr, rightStr);
-            if (opToken.type == TOKEN_EQ) return cmp == 0;
-            else return cmp != 0;
-        }
-        scanner = checkpoint;
-    } else {
-        scanner = checkpoint;
-    }
-
-    // Numeric comparison
-    double left = parse_expression();
-    if (lynx_error) return 0;
-
-    Token op2 = peekToken();
-    if (op2.type == TOKEN_EQ || op2.type == TOKEN_NE || 
-        op2.type == TOKEN_GT || op2.type == TOKEN_LT || 
-        op2.type == TOKEN_GE || op2.type == TOKEN_LE) {
-        scanToken();
-        double right = parse_expression();
-        if (lynx_error) return 0;
-
-        switch (op2.type) {
-            case TOKEN_EQ: return left == right;
-            case TOKEN_NE: return left != right;
-            case TOKEN_GT: return left > right;
-            case TOKEN_LT: return left < right;
-            case TOKEN_GE: return left >= right;
-            case TOKEN_LE: return left <= right;
-            default: return 0;
-        }
-    }
-
-    if (peekToken().type == TOKEN_AND) {
-        scanToken();
-        int right = parse_logic_expression();
-        return (left != 0) && right;
-    }
-
-    if (peekToken().type == TOKEN_OR) {
-        scanToken();
-        int right = parse_logic_expression();
-        return (left != 0) || right;
-    }
-
-    return left != 0;
-}
+// ─── LOOPS ──────────────────────────────────────────────────────
 
 void parse_for_loop() {
     Token nameToken = scanToken();
@@ -752,8 +849,9 @@ void parse_for_loop() {
         return;
     }
 
-    double start = parse_expression();
+    Value startVal = parse_expression();
     if (lynx_error) return;
+    double start = startVal.type == VAR_NUMBER ? startVal.value.numValue : 0;
 
     Token to = scanToken();
     if (to.type != TOKEN_IDENTIFIER || strcmp(getTokenText(to), "To") != 0) {
@@ -762,8 +860,9 @@ void parse_for_loop() {
         return;
     }
 
-    double end = parse_expression();
+    Value endVal = parse_expression();
     if (lynx_error) return;
+    double end = endVal.type == VAR_NUMBER ? endVal.value.numValue : 0;
 
     Token lbrace = scanToken();
     if (lbrace.type != TOKEN_LBRACE) {
@@ -856,6 +955,8 @@ void parse_while_loop() {
     free(body);
 }
 
+// ─── FUNCTIONS ──────────────────────────────────────────────────
+
 void parse_function_def() {
     Token nameToken = scanToken();
     if (nameToken.type != TOKEN_IDENTIFIER) {
@@ -924,6 +1025,7 @@ void parse_function_def() {
 }
 
 // ─── FORMAT / CHECK ──────────────────────────────────────────────
+
 void format_file(const char* path) {
     if (!path || strlen(path) >= LYNX_MAX_PATH) {
         setErrorF("Invalid file path");
@@ -1093,6 +1195,7 @@ void check_file(const char* path) {
 }
 
 // ─── PARSE STATEMENT ──────────────────────────────────────────
+
 void parse_statement() {
     Token t = scanToken();
 
@@ -1102,8 +1205,9 @@ void parse_statement() {
         double returnValue = 0;
         
         if (next.type != TOKEN_EOF && next.type != TOKEN_SEMICOLON) {
-            returnValue = parse_expression();
+            Value val = parse_expression();
             if (lynx_error) return;
+            returnValue = val.type == VAR_NUMBER ? val.value.numValue : 0;
         }
         
         Token semi = scanToken();
