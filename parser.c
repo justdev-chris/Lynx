@@ -32,7 +32,6 @@ static void safe_token_to_string(Token t, char* out, size_t outlen) {
     out[len] = '\0';
 }
 
-
 // Unescape a string token (handles \", \\, \n, \t, \r)
 static void unescape_string_token(Token t, char* out, size_t outlen) {
     if (!out || outlen < 1) return;
@@ -250,13 +249,7 @@ double parse_primary() {
             return result;
         } else if (arg.type == TOKEN_STRING) {
             char str[4096];
-            int strLen = arg.length > 4095 ? 4094 : arg.length - 2;
-            if (strLen > 0) {
-                strncpy(str, arg.start + 1, strLen);
-                str[strLen] = '\0';
-            } else {
-                str[0] = '\0';
-            }
+            unescape_string_token(arg, str, sizeof(str));
             double result = (double)strlen(str);
             setVar("__result", result);
             
@@ -287,13 +280,7 @@ double parse_primary() {
         }
         
         char name[256];
-        int nameLen = arg.length > 255 ? 254 : arg.length - 2;
-        if (nameLen > 0) {
-            strncpy(name, arg.start + 1, nameLen);
-            name[nameLen] = '\0';
-        } else {
-            name[0] = '\0';
-        }
+        unescape_string_token(arg, name, sizeof(name));
         
         const char* value = getenv(name);
         
@@ -335,13 +322,7 @@ double parse_primary() {
         
         char hay[4096], needle[4096];
         if (hayTok.type == TOKEN_STRING) {
-            int len = hayTok.length > 4095 ? 4094 : hayTok.length - 2;
-            if (len > 0) {
-                strncpy(hay, hayTok.start + 1, len);
-                hay[len] = '\0';
-            } else {
-                hay[0] = '\0';
-            }
+            unescape_string_token(hayTok, hay, sizeof(hay));
         } else {
             char name[64];
             safe_token_to_string(hayTok, name, sizeof(name));
@@ -351,13 +332,7 @@ double parse_primary() {
         }
         
         if (needleTok.type == TOKEN_STRING) {
-            int len = needleTok.length > 4095 ? 4094 : needleTok.length - 2;
-            if (len > 0) {
-                strncpy(needle, needleTok.start + 1, len);
-                needle[len] = '\0';
-            } else {
-                needle[0] = '\0';
-            }
+            unescape_string_token(needleTok, needle, sizeof(needle));
         } else {
             char name[64];
             safe_token_to_string(needleTok, name, sizeof(name));
@@ -400,13 +375,7 @@ double parse_primary() {
         
         char str[4096], delim[256];
         if (strTok.type == TOKEN_STRING) {
-            int len = strTok.length > 4095 ? 4094 : strTok.length - 2;
-            if (len > 0) {
-                strncpy(str, strTok.start + 1, len);
-                str[len] = '\0';
-            } else {
-                str[0] = '\0';
-            }
+            unescape_string_token(strTok, str, sizeof(str));
         } else {
             char name[64];
             safe_token_to_string(strTok, name, sizeof(name));
@@ -416,13 +385,7 @@ double parse_primary() {
         }
         
         if (delimTok.type == TOKEN_STRING) {
-            int len = delimTok.length > 255 ? 254 : delimTok.length - 2;
-            if (len > 0) {
-                strncpy(delim, delimTok.start + 1, len);
-                delim[len] = '\0';
-            } else {
-                delim[0] = '\0';
-            }
+            unescape_string_token(delimTok, delim, sizeof(delim));
         } else {
             char name[64];
             safe_token_to_string(delimTok, name, sizeof(name));
@@ -485,13 +448,7 @@ double parse_primary() {
         char src[4096], old[4096], new[4096];
         
         if (srcTok.type == TOKEN_STRING) {
-            int len = srcTok.length > 4095 ? 4094 : srcTok.length - 2;
-            if (len > 0) {
-                strncpy(src, srcTok.start + 1, len);
-                src[len] = '\0';
-            } else {
-                src[0] = '\0';
-            }
+            unescape_string_token(srcTok, src, sizeof(src));
         } else {
             char name[64];
             safe_token_to_string(srcTok, name, sizeof(name));
@@ -500,13 +457,7 @@ double parse_primary() {
         }
         
         if (oldTok.type == TOKEN_STRING) {
-            int len = oldTok.length > 4095 ? 4094 : oldTok.length - 2;
-            if (len > 0) {
-                strncpy(old, oldTok.start + 1, len);
-                old[len] = '\0';
-            } else {
-                old[0] = '\0';
-            }
+            unescape_string_token(oldTok, old, sizeof(old));
         } else {
             char name[64];
             safe_token_to_string(oldTok, name, sizeof(name));
@@ -515,13 +466,7 @@ double parse_primary() {
         }
         
         if (newTok.type == TOKEN_STRING) {
-            int len = newTok.length > 4095 ? 4094 : newTok.length - 2;
-            if (len > 0) {
-                strncpy(new, newTok.start + 1, len);
-                new[len] = '\0';
-            } else {
-                new[0] = '\0';
-            }
+            unescape_string_token(newTok, new, sizeof(new));
         } else {
             char name[64];
             safe_token_to_string(newTok, name, sizeof(name));
@@ -554,13 +499,7 @@ double parse_primary() {
         
         if (arg.type == TOKEN_STRING) {
             char str[4096];
-            int len = arg.length > 4095 ? 4094 : arg.length - 2;
-            if (len > 0) {
-                strncpy(str, arg.start + 1, len);
-                str[len] = '\0';
-            } else {
-                str[0] = '\0';
-            }
+            unescape_string_token(arg, str, sizeof(str));
             trimmed = str_trim_copy(str);
         } else if (arg.type == TOKEN_IDENTIFIER) {
             char name[64];
@@ -591,13 +530,7 @@ double parse_primary() {
 
     if (t.type == TOKEN_STRING) {
         char str[4096];
-        int len = t.length > 4095 ? 4094 : t.length - 2;
-        if (len > 0) {
-            strncpy(str, t.start + 1, len);
-            str[len] = '\0';
-        } else {
-            str[0] = '\0';
-        }
+        unescape_string_token(t, str, sizeof(str));
         setVarString("__result", str);
         return 0;
     }
@@ -676,6 +609,44 @@ int check_condition() {
     return result != 0;
 }
 
+// FIXED: Added parse_block_ex for skipping branches without executing (bug #3)
+static void parse_block_ex(int execute) {
+    Token lbrace = peekToken();
+    if (lbrace.type == TOKEN_LBRACE) {
+        scanToken(); // consume {
+        if (execute) {
+            while (peekToken().type != TOKEN_RBRACE && peekToken().type != TOKEN_EOF) {
+                parse_statement();
+                if (lynx_error) break;
+                // Check return flag
+                if (lynx_return_flag) return;
+            }
+        } else {
+            // Skip block by counting braces
+            int depth = 1;
+            while (depth > 0 && peekToken().type != TOKEN_EOF) {
+                Token t = scanToken();
+                if (t.type == TOKEN_LBRACE) depth++;
+                if (t.type == TOKEN_RBRACE) depth--;
+            }
+            return;
+        }
+        if (peekToken().type == TOKEN_RBRACE) scanToken();
+    } else {
+        if (execute) {
+            parse_statement();
+        } else {
+            // Skip a single statement
+            scanToken(); // consume it
+        }
+    }
+}
+
+void parse_block() {
+    parse_block_ex(1); // execute = true
+}
+
+// FIXED: String comparison in parse_logic_expression (bug #4)
 int parse_logic_expression() {
     Token t = peekToken();
     
@@ -685,6 +656,65 @@ int parse_logic_expression() {
         return !result;
     }
 
+    // Check if this is a string comparison
+    // Pattern: identifier == "string" or "string" == identifier or identifier == identifier
+    Token leftTok = peekToken();
+    Token nextTok = peekToken();
+    // We need to peek ahead to detect string comparison
+    // Save scanner state to peek ahead safely
+    Scanner checkpoint = scanner;
+    Token first = scanToken();
+    Token op = peekToken();
+    if ((op.type == TOKEN_EQ || op.type == TOKEN_NE) && 
+        (first.type == TOKEN_STRING || first.type == TOKEN_IDENTIFIER)) {
+        // Check if right side is string or identifier
+        scanToken(); // consume op
+        Token right = peekToken();
+        if (right.type == TOKEN_STRING || right.type == TOKEN_IDENTIFIER) {
+            // This is a string comparison!
+            // Restore scanner and do string comparison
+            scanner = checkpoint;
+            
+            // Parse left operand
+            Token left = scanToken();
+            char leftStr[4096];
+            if (left.type == TOKEN_STRING) {
+                unescape_string_token(left, leftStr, sizeof(leftStr));
+            } else {
+                char name[64];
+                safe_token_to_string(left, name, sizeof(name));
+                char* val = getVarString(name);
+                strncpy(leftStr, val, sizeof(leftStr) - 1);
+                leftStr[sizeof(leftStr) - 1] = '\0';
+            }
+            
+            // Get operator
+            Token opToken = scanToken();
+            
+            // Parse right operand
+            Token right = scanToken();
+            char rightStr[4096];
+            if (right.type == TOKEN_STRING) {
+                unescape_string_token(right, rightStr, sizeof(rightStr));
+            } else {
+                char name[64];
+                safe_token_to_string(right, name, sizeof(name));
+                char* val = getVarString(name);
+                strncpy(rightStr, val, sizeof(rightStr) - 1);
+                rightStr[sizeof(rightStr) - 1] = '\0';
+            }
+            
+            int cmp = strcmp(leftStr, rightStr);
+            if (opToken.type == TOKEN_EQ) return cmp == 0;
+            else return cmp != 0;
+        }
+        // Not a string comparison, restore and do numeric
+        scanner = checkpoint;
+    } else {
+        scanner = checkpoint;
+    }
+
+    // Numeric comparison
     double left = parse_expression();
     if (lynx_error) return 0;
 
@@ -720,20 +750,6 @@ int parse_logic_expression() {
     }
 
     return left != 0;
-}
-
-void parse_block() {
-    Token lbrace = peekToken();
-    if (lbrace.type == TOKEN_LBRACE) {
-        scanToken();
-        while (peekToken().type != TOKEN_RBRACE && peekToken().type != TOKEN_EOF) {
-            parse_statement();
-            if (lynx_error) break;
-        }
-        if (peekToken().type == TOKEN_RBRACE) scanToken();
-    } else {
-        parse_statement();
-    }
 }
 
 void parse_for_loop() {
@@ -798,6 +814,11 @@ void parse_for_loop() {
         while (peekToken().type != TOKEN_EOF) {
             parse_statement();
             if (lynx_error) break;
+            if (lynx_return_flag) {
+                lynx_return_flag = 0;
+                free(body);
+                return;
+            }
         }
     }
     free(body);
@@ -839,6 +860,11 @@ void parse_while_loop() {
         while (peekToken().type != TOKEN_EOF) {
             parse_statement();
             if (lynx_error) break;
+            if (lynx_return_flag) {
+                lynx_return_flag = 0;
+                free(body);
+                return;
+            }
         }
         if (lynx_error) break;
         initScanner(condStart.start);
@@ -911,6 +937,7 @@ void parse_function_def() {
     strncpy(body, bodyStart.current, bodyLen);
     body[bodyLen] = '\0';
     defineFunction(funcName, (const char**)params, paramCount, body);
+    free(body);
 }
 
 // ─── FORMAT / CHECK ──────────────────────────────────────────────
@@ -1086,13 +1113,44 @@ void check_file(const char* path) {
 void parse_statement() {
     Token t = scanToken();
 
+    // FIXED: Handle Return statement (bug #7)
+    if (t.type == TOKEN_RETURN) {
+        // Check if there's a return value
+        Token next = peekToken();
+        double returnValue = 0;
+        
+        if (next.type != TOKEN_EOF) {
+            // There's a return value
+            returnValue = parse_expression();
+            if (lynx_error) return;
+        }
+        
+        // Check for semicolon
+        Token semi = scanToken();
+        if (semi.type != TOKEN_EOF) {
+            // Semicolon is optional at end of file, but require it otherwise
+            if (semi.type != TOKEN_SEMICOLON) {
+                // Allow EOF after return
+                if (semi.type != TOKEN_EOF) {
+                    setErrorF("Return expects ';' after expression");
+                    return;
+                }
+            }
+        }
+        
+        // Set the return flag
+        lynx_return_flag = 1;
+        lynx_return_value = returnValue;
+        return;
+    }
+
     if (t.type == TOKEN_IF) {
         int cond = parse_logic_expression();
         if (lynx_error) return;
         
         if (cond) {
             // Condition true → execute If body
-            parse_block();
+            parse_block_ex(1);
             
             // Skip any following Else / Else If so it is NOT executed
             while (peekToken().type == TOKEN_ELSE) {
@@ -1105,16 +1163,16 @@ void parse_statement() {
                     // Skip the condition by parsing (but ignore result)
                     parse_logic_expression();
                     if (lynx_error) clearError();
-                    parse_block(); // skip the body
+                    parse_block_ex(0); // skip the body
                 } else {
                     // Plain Else { ... }
-                    parse_block(); // skip the body
+                    parse_block_ex(0); // skip the body
                     break;
                 }
             }
         } else {
             // Condition false → skip If body
-            parse_block();
+            parse_block_ex(0);
             
             // Execute Else / Else If if present
             if (peekToken().type == TOKEN_ELSE) {
@@ -1125,7 +1183,7 @@ void parse_statement() {
                     parse_statement();
                 } else {
                     // Plain Else
-                    parse_block();
+                    parse_block_ex(1);
                 }
             }
         }
