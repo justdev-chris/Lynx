@@ -256,7 +256,8 @@ static Value parse_primary() {
             if (v->type == VAR_NUMBER) {
                 result.type = VAR_NUMBER;
                 result.value.numValue = v->value.numValue;
-            } else if (v->type == VAR_STRING) {
+            } else if (v->type == VAR_STRING && v->value.strValue) {
+                // COPY the string - don't share ownership
                 result.type = VAR_STRING;
                 result.value.strValue = malloc(strlen(v->value.strValue) + 1);
                 if (result.value.strValue) {
@@ -635,6 +636,7 @@ static Value parse_multiplication() {
     return result;
 }
 
+// FIXED: Proper string concatenation with memory management
 static Value parse_addition() {
     Value result = parse_multiplication();
     if (lynx_error) return result;
@@ -642,12 +644,17 @@ static Value parse_addition() {
     while (peekToken().type == TOKEN_PLUS || peekToken().type == TOKEN_MINUS) {
         Token op = scanToken();
         Value right = parse_multiplication();
-        if (lynx_error) return result;
+        if (lynx_error) {
+            if (right.type == VAR_STRING && right.value.strValue) {
+                free(right.value.strValue);
+            }
+            return result;
+        }
         
         if (op.type == TOKEN_PLUS) {
             // String concatenation
             if (result.type == VAR_STRING || right.type == VAR_STRING) {
-                // Convert both to strings
+                // Convert both to strings (copy, don't steal)
                 char leftStr[4096] = {0};
                 char rightStr[4096] = {0};
                 
@@ -663,12 +670,13 @@ static Value parse_addition() {
                     snprintf(rightStr, sizeof(rightStr), "%.5f", right.value.numValue);
                 }
                 
-                // Free old string if any
+                // Free old string from result if it exists
                 if (result.type == VAR_STRING && result.value.strValue) {
                     free(result.value.strValue);
                     result.value.strValue = NULL;
                 }
                 
+                // Allocate new combined string
                 result.type = VAR_STRING;
                 result.value.strValue = malloc(strlen(leftStr) + strlen(rightStr) + 1);
                 if (result.value.strValue) {
@@ -678,6 +686,12 @@ static Value parse_addition() {
                     result.type = VAR_NUMBER;
                     result.value.numValue = 0;
                 }
+                
+                // Free right string if it was dynamically allocated
+                if (right.type == VAR_STRING && right.value.strValue) {
+                    free(right.value.strValue);
+                    right.value.strValue = NULL;
+                }
             } else {
                 // Both are numbers
                 result.value.numValue += right.value.numValue;
@@ -685,6 +699,9 @@ static Value parse_addition() {
         } else { // MINUS
             if (result.type != VAR_NUMBER || right.type != VAR_NUMBER) {
                 setErrorF("Cannot subtract strings");
+                if (right.type == VAR_STRING && right.value.strValue) {
+                    free(right.value.strValue);
+                }
                 return result;
             }
             result.value.numValue -= right.value.numValue;
@@ -701,7 +718,11 @@ int check_condition() {
     Value result = parse_expression();
     if (lynx_error) return 0;
     if (result.type == VAR_STRING) {
-        return result.value.strValue != NULL && strlen(result.value.strValue) > 0;
+        int isTrue = result.value.strValue != NULL && strlen(result.value.strValue) > 0;
+        if (result.value.strValue) {
+            free(result.value.strValue);
+        }
+        return isTrue;
     }
     return result.value.numValue != 0;
 }
@@ -719,7 +740,12 @@ int parse_logic_expression() {
 
     // Parse left side as a Value
     Value left = parse_expression();
-    if (lynx_error) return 0;
+    if (lynx_error) {
+        if (left.type == VAR_STRING && left.value.strValue) {
+            free(left.value.strValue);
+        }
+        return 0;
+    }
 
     // Check for comparison operators
     Token op = peekToken();
@@ -728,7 +754,15 @@ int parse_logic_expression() {
         op.type == TOKEN_GE || op.type == TOKEN_LE) {
         scanToken();
         Value right = parse_expression();
-        if (lynx_error) return 0;
+        if (lynx_error) {
+            if (left.type == VAR_STRING && left.value.strValue) {
+                free(left.value.strValue);
+            }
+            if (right.type == VAR_STRING && right.value.strValue) {
+                free(right.value.strValue);
+            }
+            return 0;
+        }
 
         // Handle string comparisons
         if (left.type == VAR_STRING || right.type == VAR_STRING) {
@@ -748,6 +782,15 @@ int parse_logic_expression() {
             }
             
             int cmp = strcmp(leftStr, rightStr);
+            
+            // Free strings
+            if (left.type == VAR_STRING && left.value.strValue) {
+                free(left.value.strValue);
+            }
+            if (right.type == VAR_STRING && right.value.strValue) {
+                free(right.value.strValue);
+            }
+            
             switch (op.type) {
                 case TOKEN_EQ: return cmp == 0;
                 case TOKEN_NE: return cmp != 0;
@@ -762,6 +805,14 @@ int parse_logic_expression() {
         // Numeric comparisons
         double l = left.type == VAR_NUMBER ? left.value.numValue : 0;
         double r = right.type == VAR_NUMBER ? right.value.numValue : 0;
+        
+        // Free strings if any
+        if (left.type == VAR_STRING && left.value.strValue) {
+            free(left.value.strValue);
+        }
+        if (right.type == VAR_STRING && right.value.strValue) {
+            free(right.value.strValue);
+        }
         
         switch (op.type) {
             case TOKEN_EQ: return l == r;
@@ -778,21 +829,34 @@ int parse_logic_expression() {
     if (peekToken().type == TOKEN_AND) {
         scanToken();
         int right = parse_logic_expression();
-        return (left.type == VAR_NUMBER && left.value.numValue != 0) && right;
+        int leftBool = (left.type == VAR_NUMBER && left.value.numValue != 0) || 
+                       (left.type == VAR_STRING && left.value.strValue && strlen(left.value.strValue) > 0);
+        if (left.type == VAR_STRING && left.value.strValue) {
+            free(left.value.strValue);
+        }
+        return leftBool && right;
     }
 
     if (peekToken().type == TOKEN_OR) {
         scanToken();
         int right = parse_logic_expression();
-        return (left.type == VAR_NUMBER && left.value.numValue != 0) || right;
+        int leftBool = (left.type == VAR_NUMBER && left.value.numValue != 0) ||
+                       (left.type == VAR_STRING && left.value.strValue && strlen(left.value.strValue) > 0);
+        if (left.type == VAR_STRING && left.value.strValue) {
+            free(left.value.strValue);
+        }
+        return leftBool || right;
     }
 
     // For non-numeric values, treat as true if they exist
+    int result;
     if (left.type == VAR_STRING && left.value.strValue) {
-        return 1; // Non-empty string is true
+        result = 1; // Non-empty string is true
+        free(left.value.strValue);
+    } else {
+        result = (left.type == VAR_NUMBER && left.value.numValue != 0);
     }
-    
-    return (left.type == VAR_NUMBER && left.value.numValue != 0);
+    return result;
 }
 
 // ─── BLOCK PARSING ──────────────────────────────────────────────
@@ -850,8 +914,16 @@ void parse_for_loop() {
     }
 
     Value startVal = parse_expression();
-    if (lynx_error) return;
+    if (lynx_error) {
+        if (startVal.type == VAR_STRING && startVal.value.strValue) {
+            free(startVal.value.strValue);
+        }
+        return;
+    }
     double start = startVal.type == VAR_NUMBER ? startVal.value.numValue : 0;
+    if (startVal.type == VAR_STRING && startVal.value.strValue) {
+        free(startVal.value.strValue);
+    }
 
     Token to = scanToken();
     if (to.type != TOKEN_IDENTIFIER || strcmp(getTokenText(to), "To") != 0) {
@@ -861,8 +933,16 @@ void parse_for_loop() {
     }
 
     Value endVal = parse_expression();
-    if (lynx_error) return;
+    if (lynx_error) {
+        if (endVal.type == VAR_STRING && endVal.value.strValue) {
+            free(endVal.value.strValue);
+        }
+        return;
+    }
     double end = endVal.type == VAR_NUMBER ? endVal.value.numValue : 0;
+    if (endVal.type == VAR_STRING && endVal.value.strValue) {
+        free(endVal.value.strValue);
+    }
 
     Token lbrace = scanToken();
     if (lbrace.type != TOKEN_LBRACE) {
@@ -1206,8 +1286,16 @@ void parse_statement() {
         
         if (next.type != TOKEN_EOF && next.type != TOKEN_SEMICOLON) {
             Value val = parse_expression();
-            if (lynx_error) return;
+            if (lynx_error) {
+                if (val.type == VAR_STRING && val.value.strValue) {
+                    free(val.value.strValue);
+                }
+                return;
+            }
             returnValue = val.type == VAR_NUMBER ? val.value.numValue : 0;
+            if (val.type == VAR_STRING && val.value.strValue) {
+                free(val.value.strValue);
+            }
         }
         
         Token semi = scanToken();
