@@ -106,8 +106,10 @@ void setVar(const char* name, double val) {
     }
 }
 
-// FIXED: setVarString - properly handles string assignment
 void setVarString(const char* name, const char* value) {
+    // ===== DEBUG =====
+    printf("🐾 DEBUG setVarString: name='%s', value='%s'\n", name ? name : "(null)", value ? value : "(null)");
+    
     if (!name || strlen(name) == 0 || strlen(name) > VAR_NAME_MAX) {
         printf("🐾 ERROR: setVarString called with invalid name\n");
         return;
@@ -117,6 +119,8 @@ void setVarString(const char* name, const char* value) {
     
     Variable* v = findVar(name);
     if (v) {
+        printf("🐾 DEBUG setVarString: found existing variable '%s', type=%d\n", name, v->type);
+        
         // Free previous string or array data
         if (v->type == VAR_ARRAY) {
             for (int i = 0; i < v->array_capacity; i++) {
@@ -133,6 +137,7 @@ void setVarString(const char* name, const char* value) {
             v->value.array = NULL;
         }
         if (v->type == VAR_STRING && v->value.strValue) {
+            printf("🐾 DEBUG setVarString: freeing old string '%s'\n", v->value.strValue);
             free(v->value.strValue);
             v->value.strValue = NULL;
         }
@@ -142,15 +147,17 @@ void setVarString(const char* name, const char* value) {
         v->value.strValue = malloc(strlen(value) + 1);
         if (v->value.strValue) {
             strcpy(v->value.strValue, value);
+            printf("🐾 DEBUG setVarString: set '%s' = '%s'\n", name, v->value.strValue);
         } else {
             printf("🐾 ERROR: Out of memory for string\n");
             v->value.strValue = NULL;
         }
         v->array_length = 0;
         v->array_capacity = 0;
-        // DO NOT set v->value.array = NULL (union clobber bug)
         return;
     }
+    
+    printf("🐾 DEBUG setVarString: creating new variable '%s'\n", name);
     
     if (varCount < MAX_VARS) {
         strncpy(den[varCount].name, name, VAR_NAME_MAX);
@@ -160,6 +167,7 @@ void setVarString(const char* name, const char* value) {
         den[varCount].value.strValue = malloc(strlen(value) + 1);
         if (den[varCount].value.strValue) {
             strcpy(den[varCount].value.strValue, value);
+            printf("🐾 DEBUG setVarString: created '%s' = '%s'\n", name, den[varCount].value.strValue);
         } else {
             printf("🐾 ERROR: Out of memory for string\n");
             den[varCount].value.strValue = NULL;
@@ -168,6 +176,7 @@ void setVarString(const char* name, const char* value) {
         den[varCount].array_length = 0;
         den[varCount].array_capacity = 0;
         varCount++;
+        printf("🐾 DEBUG setVarString: varCount now = %d\n", varCount);
     } else {
         printf("🐾 ERROR: Max variables (%d) exceeded\n", MAX_VARS);
     }
@@ -184,9 +193,10 @@ char* getVarString(const char* name) {
     if (!name) return "";
     Variable* v = findVar(name);
     if (v && v->type == VAR_STRING && v->value.strValue) {
+        printf("🐾 DEBUG getVarString: '%s' = '%s'\n", name, v->value.strValue);
         return v->value.strValue;
     }
-    // Return empty string for missing or non-string variables
+    printf("🐾 DEBUG getVarString: '%s' not found or not a string\n", name);
     return "";
 }
 
@@ -464,8 +474,6 @@ int callFunction(const char* name) {
     
     for (int i = 0; i < funcCount; i++) {
         if (strcmp(functions[i].name, name) == 0) {
-            // Simple call - just run the body with current variables
-            // (A more complete implementation would push a new scope)
             Scanner previous = scanner;
             initScanner(functions[i].body);
             while (peekToken().type != TOKEN_EOF) {
@@ -475,7 +483,6 @@ int callFunction(const char* name) {
                     clearError();
                     break;
                 }
-                // Check return flag after each statement
                 if (lynx_return_flag) {
                     lynx_return_flag = 0;
                     recursionDepth--;
@@ -554,8 +561,6 @@ void save_vars_to_temp() {
         if (den[i].type == VAR_NUMBER) {
             fprintf(f, "%f\n", den[i].value.numValue);
         } else if (den[i].type == VAR_STRING && den[i].value.strValue) {
-            // Note: this format is fragile if the string contains | or newlines.
-            // For the current use case (preserve_vars for init) it is acceptable.
             fprintf(f, "%s\n", den[i].value.strValue);
         } else if (den[i].type == VAR_ARRAY) {
             fprintf(f, "%d\n", den[i].array_length);
@@ -583,7 +588,6 @@ void load_vars_from_temp() {
         return;
     }
     
-    // Clean up current variables
     for (int i = 0; i < varCount; i++) {
         if (den[i].type == VAR_STRING && den[i].value.strValue) {
             free(den[i].value.strValue);
@@ -633,7 +637,6 @@ void load_vars_from_temp() {
         
         if (type == VAR_NUMBER) {
             double val = 0;
-            // Skip past the two '|' separators
             char* p = strchr(line, '|');
             if (p) {
                 p = strchr(p + 1, '|');
@@ -662,7 +665,6 @@ void load_vars_from_temp() {
                 }
             }
         } else if (type == VAR_ARRAY) {
-            // Basic array restore (length only for now)
             varCount++;
         }
     }
