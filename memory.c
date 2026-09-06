@@ -8,6 +8,10 @@
 char* lynx_error = NULL;
 LynxError lynx_error_state = {0};
 
+// ─── RETURN FLAG FOR EARLY EXIT ─────────────────────────────
+int lynx_return_flag = 0;
+double lynx_return_value = 0;
+
 // ─── CONSTANTS ────────────────────────────────────────────────
 #define MAX_VARS 1000
 #define MAX_FUNCS 200
@@ -143,7 +147,7 @@ void setVarString(const char* name, const char* value) {
         }
         v->array_length = 0;
         v->array_capacity = 0;
-        v->value.array = NULL;
+        // FIXED: Removed v->value.array = NULL; - this was clobbering strValue
         return;
     }
     
@@ -468,6 +472,12 @@ int callFunction(const char* name) {
                     fprintf(stderr, "🐾 %s\n", lynx_error);
                     clearError();
                     break;
+                }
+                // FIXED: Check return flag after each statement
+                if (lynx_return_flag) {
+                    lynx_return_flag = 0;
+                    recursionDepth--;
+                    return (int)lynx_return_value;
                 }
             }
             scanner = previous;
