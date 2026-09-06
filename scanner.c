@@ -127,6 +127,7 @@ const char* tokenTypeToString(LynxTokenType type) {
         case TOKEN_RBRACKET: return "]";
         case TOKEN_COMMA: return ",";
         case TOKEN_COLON: return ":";
+        case TOKEN_SEMICOLON: return ";";
         case TOKEN_EOF: return "EOF";
         case TOKEN_ERROR: return "error token";
         default: return "unknown";
@@ -275,6 +276,7 @@ Token scanToken() {
         case ']': return makeToken(TOKEN_RBRACKET);
         case ',': return makeToken(TOKEN_COMMA);
         case ':': return makeToken(TOKEN_COLON);
+        case ';': return makeToken(TOKEN_SEMICOLON);  // FIXED: Added semicolon support
         case '=':
             if (peek() == '=') { advance(); return makeToken(TOKEN_EQ); }
             return makeToken(TOKEN_EQUAL);
