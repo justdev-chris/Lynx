@@ -364,8 +364,10 @@ int pawcom_parse_statement(Token t) {
             } else if (val.type == TOKEN_IDENTIFIER) {
                 char name[64];
                 snprintf(name, sizeof(name), "%.*s", val.length, val.start);
-                char* s = getVarString(name);
-                if (s && strlen(s) > 0) {
+                // Prefer string variable even if empty
+                Variable* v = findVar(name);
+                if (v && v->type == VAR_STRING) {
+                    const char* s = v->value.strValue ? v->value.strValue : "";
                     strncat(result, s, sizeof(result) - strlen(result) - 1);
                 } else {
                     double num = getVar(name);
@@ -452,8 +454,12 @@ int pawcom_parse_statement(Token t) {
                 } else if (val.type == TOKEN_IDENTIFIER) {
                     char name[64];
                     snprintf(name, sizeof(name), "%.*s", val.length, val.start);
-                    char* s = getVarString(name);
-                    if (s && strlen(s) > 0) {
+
+                    // Prefer string variable even if empty. Only fall back to number
+                    // when the variable is not a string (or does not exist).
+                    Variable* v = findVar(name);
+                    if (v && v->type == VAR_STRING) {
+                        const char* s = v->value.strValue ? v->value.strValue : "";
                         strncat(result, s, sizeof(result) - strlen(result) - 1);
                     } else {
                         double num = getVar(name);
