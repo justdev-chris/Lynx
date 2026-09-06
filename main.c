@@ -150,8 +150,10 @@ int main(int argc, char* argv[]) {
     if (argc >= 2) {
         if (STRICMP(argv[1], "help") == 0 || STRICMP(argv[1], "--help") == 0) {
             show_help();
+            return 0;  // FIXED: exit cleanly after help
         } else if (STRICMP(argv[1], "--version") == 0) {
             printf("Lynx Engine %s\n", LYNX_VERSION);
+            return 0;  // FIXED: exit cleanly after version
         }
         #ifdef _WIN32
         else if (STRICMP(argv[1], "--update") == 0) {
