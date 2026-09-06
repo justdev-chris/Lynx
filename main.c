@@ -150,10 +150,10 @@ int main(int argc, char* argv[]) {
     if (argc >= 2) {
         if (STRICMP(argv[1], "help") == 0 || STRICMP(argv[1], "--help") == 0) {
             show_help();
-            return 0;  // FIXED: exit cleanly after help
+            return 0;
         } else if (STRICMP(argv[1], "--version") == 0) {
             printf("Lynx Engine %s\n", LYNX_VERSION);
-            return 0;  // FIXED: exit cleanly after version
+            return 0;
         }
         #ifdef _WIN32
         else if (STRICMP(argv[1], "--update") == 0) {
@@ -174,15 +174,38 @@ int main(int argc, char* argv[]) {
         else if (STRICMP(argv[1], "init") == 0) {
             clearError();
 
+            // ===== DEBUG: Print what we're about to set =====
+            printf("🐾 DEBUG MAIN: argc = %d\n", argc);
+            printf("🐾 DEBUG MAIN: argv[2] = %s\n", argc >= 3 ? argv[2] : "(null)");
+            printf("🐾 DEBUG MAIN: argv[3] = %s\n", argc >= 4 ? argv[3] : "(null)");
+
             if (argc >= 3) {
                 setVarString("__project_name", argv[2]);
+                printf("🐾 DEBUG MAIN: Called setVarString(__project_name, %s)\n", argv[2]);
             } else {
                 setVarString("__project_name", "my_project");
+                printf("🐾 DEBUG MAIN: Called setVarString(__project_name, my_project)\n");
             }
             if (argc >= 4) {
                 setVarString("__author", argv[3]);
+                printf("🐾 DEBUG MAIN: Called setVarString(__author, %s)\n", argv[3]);
             } else {
                 setVarString("__author", "Anonymous");
+                printf("🐾 DEBUG MAIN: Called setVarString(__author, Anonymous)\n");
+            }
+            
+            // ===== DEBUG: Verify they were set =====
+            printf("🐾 DEBUG MAIN: After setVarString, __project_name = '%s'\n", getVarString("__project_name"));
+            printf("🐾 DEBUG MAIN: After setVarString, __author = '%s'\n", getVarString("__author"));
+            printf("🐾 DEBUG MAIN: varCount = %d\n", varCount);
+            
+            // ===== DEBUG: List all variables =====
+            printf("🐾 DEBUG MAIN: All variables:\n");
+            for (int i = 0; i < varCount; i++) {
+                printf("  %d: %s (type=%d)\n", i, den[i].name, den[i].type);
+                if (den[i].type == VAR_STRING) {
+                    printf("      strValue = '%s'\n", den[i].value.strValue ? den[i].value.strValue : "(null)");
+                }
             }
             
             runFile("scripts/init.lnx", 0, NULL);
