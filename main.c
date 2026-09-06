@@ -23,9 +23,6 @@ extern LynxError lynx_error_state;
 // ─── GLOBAL TRY/CATCH STATE ──────────────────────────────────
 TryState try_state = {0};
 
-// ─── PRESERVE VARS FLAG ──────────────────────────────────────
-int preserve_vars = 0;
-
 void show_help() {
     printf("\n🐾 LYNX %s COMMANDS:\n", LYNX_VERSION);
     printf("\n  init               - Create new Lynx project\n");
@@ -150,9 +147,6 @@ int main(int argc, char* argv[]) {
     try_state.error_line = 0;
     try_state.error_col = 0;
 
-    // Initialize preserve_vars
-    preserve_vars = 0;
-
     if (argc >= 2) {
         if (STRICMP(argv[1], "help") == 0 || STRICMP(argv[1], "--help") == 0) {
             show_help();
@@ -176,10 +170,8 @@ int main(int argc, char* argv[]) {
         }
         #endif
         else if (STRICMP(argv[1], "init") == 0) {
-            // Clear any previous error state
             clearError();
 
-            // Set project name and author BEFORE running script
             if (argc >= 3) {
                 setVarString("__project_name", argv[2]);
             } else {
@@ -192,6 +184,8 @@ int main(int argc, char* argv[]) {
             }
             
             runFile("scripts/init.lnx", 0, NULL);
+            unload_all_libs();
+            cleanup_all();
             return 0;
         } else if (STRICMP(argv[1], "add") == 0) {
             if (argc >= 3) {
@@ -202,9 +196,13 @@ int main(int argc, char* argv[]) {
                 fprintf(stderr, "🐾 %s\n", lynx_error);
                 clearError();
             }
+            unload_all_libs();
+            cleanup_all();
             return 0;
         } else if (STRICMP(argv[1], "install") == 0) {
             runFile("scripts/install.lnx", 0, NULL);
+            unload_all_libs();
+            cleanup_all();
             return 0;
         } else if (STRICMP(argv[1], "remove") == 0) {
             if (argc >= 3) {
@@ -215,6 +213,8 @@ int main(int argc, char* argv[]) {
                 fprintf(stderr, "🐾 %s\n", lynx_error);
                 clearError();
             }
+            unload_all_libs();
+            cleanup_all();
             return 0;
         } else if (STRICMP(argv[1], "search") == 0) {
             if (argc >= 3) {
@@ -225,15 +225,23 @@ int main(int argc, char* argv[]) {
                 fprintf(stderr, "🐾 %s\n", lynx_error);
                 clearError();
             }
+            unload_all_libs();
+            cleanup_all();
             return 0;
         } else if (STRICMP(argv[1], "update") == 0) {
             runFile("scripts/update.lnx", 0, NULL);
+            unload_all_libs();
+            cleanup_all();
             return 0;
         } else if (STRICMP(argv[1], "publish") == 0) {
             runFile("scripts/publish.lnx", 0, NULL);
+            unload_all_libs();
+            cleanup_all();
             return 0;
         } else if (STRICMP(argv[1], "build") == 0) {
             runFile("src/main.lnx", 0, NULL);
+            unload_all_libs();
+            cleanup_all();
             return 0;
         } else if (STRICMP(argv[1], "fmt") == 0) {
             if (argc >= 3) {
@@ -243,6 +251,8 @@ int main(int argc, char* argv[]) {
                 fprintf(stderr, "🐾 %s\n", lynx_error);
                 clearError();
             }
+            unload_all_libs();
+            cleanup_all();
             return 0;
         } else if (STRICMP(argv[1], "check") == 0) {
             if (argc >= 3) {
@@ -252,6 +262,8 @@ int main(int argc, char* argv[]) {
                 fprintf(stderr, "🐾 %s\n", lynx_error);
                 clearError();
             }
+            unload_all_libs();
+            cleanup_all();
             return 0;
         } else {
             char scriptPath[256];
@@ -272,12 +284,10 @@ int main(int argc, char* argv[]) {
                     clearError();
                 }
             }
+            unload_all_libs();
+            cleanup_all();
             return 0;
         }
-
-        unload_all_libs();
-        cleanup_all();
-        return 0;
     }
 
     char line[1024];
