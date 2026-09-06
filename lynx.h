@@ -147,7 +147,11 @@ extern Variable den[];
 extern int varCount;
 extern LynxError lynx_error_state;
 extern TryState try_state;
-extern int preserve_vars;  // <-- ADDED
+extern int preserve_vars;
+
+// FIXED: Added return flag globals for Return statement support
+extern int lynx_return_flag;
+extern double lynx_return_value;
 
 // ─── FUNCTIONS ──────────────────────────────────────────────────
 void initScanner(const char* source);
@@ -172,6 +176,9 @@ void setArrayStringElement(const char* name, int index, const char* value);
 char* getArrayStringElement(const char* name, int index);
 void pounce(const char* name);
 void hunt();
+
+// FIXED: Added missing findVar prototype (bug #5)
+Variable* findVar(const char* name);
 
 void defineFunction(const char* name, const char** params, int paramCount, const char* body);
 int callFunction(const char* name);
