@@ -42,8 +42,10 @@ void show_help() {
 }
 
 void runFile(const char* path, int argc, char** argv) {
-    (void)argc;  // currently unused
-    (void)argv;  // currently unused
+    (void)argc;
+    (void)argv;
+
+    printf("🐾 DEBUG runFile: ENTER (path='%s')\n", path);
 
     char cleanPath[LYNX_MAX_PATH];
     if (path[0] == '"') {
@@ -90,6 +92,7 @@ void runFile(const char* path, int argc, char** argv) {
 
     if (!file) {
         fprintf(stderr, "🐾 File '%s' not found\n", cleanPath);
+        printf("🐾 DEBUG runFile: EXIT (file not found)\n");
         return;
     }
 
@@ -102,7 +105,6 @@ void runFile(const char* path, int argc, char** argv) {
         buf[read] = '\0';
         fclose(file);
 
-        // Strip UTF-8 BOM (EF BB BF)
         if (read >= 3 &&
             (unsigned char)buf[0] == 0xEF &&
             (unsigned char)buf[1] == 0xBB &&
@@ -111,8 +113,11 @@ void runFile(const char* path, int argc, char** argv) {
             buf[read - 3] = '\0';
         }
 
+        printf("🐾 DEBUG runFile: About to initScanner\n");
         Scanner previousScanner = scanner;
         initScanner(buf);
+        printf("🐾 DEBUG runFile: Scanner initialized, starting parse loop\n");
+        
         while (peekToken().type != TOKEN_EOF) {
             parse_statement();
             if (lynx_error) {
@@ -127,6 +132,8 @@ void runFile(const char* path, int argc, char** argv) {
     } else {
         fclose(file);
     }
+
+    printf("🐾 DEBUG runFile: EXIT\n");
 }
 
 int main(int argc, char* argv[]) {
@@ -134,13 +141,11 @@ int main(int argc, char* argv[]) {
     SetConsoleOutputCP(65001);
     #endif
     
-    // Initialize error state
     lynx_error_state.message = NULL;
     lynx_error_state.line = 0;
     lynx_error_state.col = 0;
     lynx_error = NULL;
     
-    // Initialize try/catch state
     try_state.is_trying = 0;
     try_state.caught = 0;
     try_state.error_message = NULL;
@@ -174,7 +179,6 @@ int main(int argc, char* argv[]) {
         else if (STRICMP(argv[1], "init") == 0) {
             clearError();
 
-            // ===== DEBUG: Print what we're about to set =====
             printf("🐾 DEBUG MAIN: argc = %d\n", argc);
             printf("🐾 DEBUG MAIN: argv[2] = %s\n", argc >= 3 ? argv[2] : "(null)");
             printf("🐾 DEBUG MAIN: argv[3] = %s\n", argc >= 4 ? argv[3] : "(null)");
@@ -194,12 +198,10 @@ int main(int argc, char* argv[]) {
                 printf("🐾 DEBUG MAIN: Called setVarString(__author, Anonymous)\n");
             }
             
-            // ===== DEBUG: Verify they were set =====
             printf("🐾 DEBUG MAIN: After setVarString, __project_name = '%s'\n", getVarString("__project_name"));
             printf("🐾 DEBUG MAIN: After setVarString, __author = '%s'\n", getVarString("__author"));
             printf("🐾 DEBUG MAIN: varCount = %d\n", varCount);
             
-            // ===== DEBUG: List all variables =====
             printf("🐾 DEBUG MAIN: All variables:\n");
             for (int i = 0; i < varCount; i++) {
                 printf("  %d: %s (type=%d)\n", i, den[i].name, den[i].type);
@@ -208,7 +210,10 @@ int main(int argc, char* argv[]) {
                 }
             }
             
+            printf("🐾 DEBUG MAIN: BEFORE runFile, __project_name = '%s'\n", getVarString("__project_name"));
             runFile("scripts/init.lnx", 0, NULL);
+            printf("🐾 DEBUG MAIN: AFTER runFile, __project_name = '%s'\n", getVarString("__project_name"));
+            
             unload_all_libs();
             cleanup_all();
             return 0;
