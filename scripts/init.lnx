@@ -7,7 +7,14 @@ If projectName == "" {
     Roar "❌ Usage: lynx init <project_name> [author]"
     Roar "⚠️ Project not created"
 } Else {
-    Paw projectName
+    Set projectDir = projectName
+    Set srcPath = projectName + "/src"
+    Set libsPath = projectName + "/libs"
+    Set binPath = projectName + "/bin"
+    Set tomlPath = projectName + "/lynx.toml"
+    Set mainPath = projectName + "/src/main.lnx"
+    
+    Paw projectDir
     
     Set tomlContent = "[package]\n"
     Set tomlContent = tomlContent + "name = \""
@@ -20,16 +27,16 @@ If projectName == "" {
     Set tomlContent = tomlContent + "description = \"A Lynx project\"\n"
     Set tomlContent = tomlContent + "\n[dependencies]\n"
 
-    KittyWriteFile (projectName + "/lynx.toml") tomlContent
+    KittyWriteFile tomlPath tomlContent
 
-    Paw (projectName + "/src")
-    Paw (projectName + "/libs")
-    Paw (projectName + "/bin")
+    Paw srcPath
+    Paw libsPath
+    Paw binPath
 
     Set mainContent = "Roar \"Hello from "
     Set mainContent = mainContent + projectName
     Set mainContent = mainContent + "!\"\n"
-    KittyWriteFile (projectName + "/src/main.lnx") mainContent
+    KittyWriteFile mainPath mainContent
 
     Roar "✅ Project '" + projectName + "' initialized. Run 'lynx build' next."
 }
