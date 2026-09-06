@@ -113,6 +113,15 @@ typedef struct Variable {
     int array_capacity;
 } Variable;
 
+// ─── VALUE TYPE (for expressions) ─────────────────────────────
+typedef struct {
+    VarType type;
+    union {
+        double numValue;
+        char* strValue;
+    } value;
+} Value;
+
 // ─── FUNCTION ──────────────────────────────────────────────────
 typedef struct {
     char name[64];
@@ -148,8 +157,6 @@ extern int varCount;
 extern LynxError lynx_error_state;
 extern TryState try_state;
 extern int preserve_vars;
-
-// FIXED: Added return flag globals for Return statement support
 extern int lynx_return_flag;
 extern double lynx_return_value;
 
@@ -160,7 +167,7 @@ Token peekToken();
 
 void parse_statement();
 void parse_block();
-double parse_expression();
+Value parse_expression();
 int parse_logic_expression();
 int check_condition();
 void runFile(const char* path, int argc, char** argv);
@@ -177,7 +184,6 @@ char* getArrayStringElement(const char* name, int index);
 void pounce(const char* name);
 void hunt();
 
-// FIXED: Added missing findVar prototype (bug #5)
 Variable* findVar(const char* name);
 
 void defineFunction(const char* name, const char** params, int paramCount, const char* body);
