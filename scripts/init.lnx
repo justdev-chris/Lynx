@@ -1,20 +1,42 @@
 Roar "🐾 Initializing Lynx project..."
 
+# ===== MAXIMUM DEBUGGING =====
+Roar "=== DEBUG: __project_name = " + __project_name
+Roar "=== DEBUG: __author = " + __author
+
 Set projectName = __project_name
 Set author = __author
+
+Roar "=== DEBUG: projectName = " + projectName
+Roar "=== DEBUG: author = " + author
 
 If projectName == "" {
     Roar "❌ Usage: lynx init <project_name> [author]"
     Roar "⚠️ Project not created"
 } Else {
+    Roar "=== DEBUG: projectName is not empty, continuing..."
+    
     Set projectDir = projectName
+    Roar "=== DEBUG: projectDir = " + projectDir
+    
+    Paw projectDir
+    Roar "=== DEBUG: Paw projectDir completed"
+    
     Set srcPath = projectName + "/src"
     Set libsPath = projectName + "/libs"
     Set binPath = projectName + "/bin"
     Set tomlPath = projectName + "/lynx.toml"
     Set mainPath = projectName + "/src/main.lnx"
     
-    Paw projectDir
+    Roar "=== DEBUG: srcPath = " + srcPath
+    Roar "=== DEBUG: libsPath = " + libsPath
+    Roar "=== DEBUG: binPath = " + binPath
+    Roar "=== DEBUG: tomlPath = " + tomlPath
+    Roar "=== DEBUG: mainPath = " + mainPath
+    
+    Paw srcPath
+    Paw libsPath
+    Paw binPath
     
     Set tomlContent = "[package]\n"
     Set tomlContent = tomlContent + "name = \""
@@ -28,10 +50,6 @@ If projectName == "" {
     Set tomlContent = tomlContent + "\n[dependencies]\n"
 
     KittyWriteFile tomlPath tomlContent
-
-    Paw srcPath
-    Paw libsPath
-    Paw binPath
 
     Set mainContent = "Roar \"Hello from "
     Set mainContent = mainContent + projectName
