@@ -32,6 +32,36 @@ static void safe_token_to_string(Token t, char* out, size_t outlen) {
     out[len] = '\0';
 }
 
+
+// Unescape a string token (handles \", \\, \n, \t, \r)
+static void unescape_string_token(Token t, char* out, size_t outlen) {
+    if (!out || outlen < 1) return;
+    out[0] = '\0';
+    if (t.type != TOKEN_STRING || !t.start || t.length < 2) return;
+
+    const char* src = t.start + 1;          // skip opening "
+    int srcLen = t.length - 2;              // exclude both quotes
+    size_t j = 0;
+
+    for (int i = 0; i < srcLen && j < outlen - 1; i++) {
+        if (src[i] == '\\' && i + 1 < srcLen) {
+            char esc = src[i + 1];
+            switch (esc) {
+                case 'n':  out[j++] = '\n'; break;
+                case 't':  out[j++] = '\t'; break;
+                case 'r':  out[j++] = '\r'; break;
+                case '\\': out[j++] = '\\'; break;
+                case '"':  out[j++] = '"';  break;
+                default:   out[j++] = esc;  break;
+            }
+            i++; // skip the escaped character
+        } else {
+            out[j++] = src[i];
+        }
+    }
+    out[j] = '\0';
+}
+
 // ─── STRING HELPERS ────────────────────────────────────────────
 static char* str_trim_copy(const char* str) {
     if (!str) return strdup("");
