@@ -8,10 +8,7 @@ If projectName = "" {
     Roar "⚠️ Project not created"
 }
 Else {
-    If author = "" {
-        Set author = "Unknown"
-    }
-
+    Set author = __author
     Set tomlContent = "[package]\n"
     Set tomlContent = tomlContent + "name = \""
     Set tomlContent = tomlContent + projectName
