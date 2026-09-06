@@ -154,6 +154,8 @@ void setVarString(const char* name, const char* value) {
         }
         v->array_length = 0;
         v->array_capacity = 0;
+        
+        printf("🐾 DEBUG setVarString: FINAL - name='%s', type=%d, strValue='%s'\n", name, v->type, v->value.strValue ? v->value.strValue : "(null)");
         return;
     }
     
@@ -177,6 +179,7 @@ void setVarString(const char* name, const char* value) {
         den[varCount].array_capacity = 0;
         varCount++;
         printf("🐾 DEBUG setVarString: varCount now = %d\n", varCount);
+        printf("🐾 DEBUG setVarString: FINAL - name='%s', type=%d, strValue='%s'\n", name, den[varCount-1].type, den[varCount-1].value.strValue ? den[varCount-1].value.strValue : "(null)");
     } else {
         printf("🐾 ERROR: Max variables (%d) exceeded\n", MAX_VARS);
     }
@@ -192,9 +195,12 @@ double getVar(const char* name) {
 char* getVarString(const char* name) {
     if (!name) return "";
     Variable* v = findVar(name);
-    if (v && v->type == VAR_STRING && v->value.strValue) {
-        printf("🐾 DEBUG getVarString: '%s' = '%s'\n", name, v->value.strValue);
-        return v->value.strValue;
+    if (v) {
+        printf("🐾 DEBUG getVarString: found '%s', type=%d, strValue=%p\n", name, v->type, v->value.strValue);
+        if (v->type == VAR_STRING && v->value.strValue) {
+            printf("🐾 DEBUG getVarString: returning '%s'\n", v->value.strValue);
+            return v->value.strValue;
+        }
     }
     printf("🐾 DEBUG getVarString: '%s' not found or not a string\n", name);
     return "";
@@ -540,139 +546,18 @@ void cleanup_all() {
 }
 
 // ─── VARIABLE FILE PERSISTENCE ────────────────────────────────
+// DISABLED - These functions were corrupting string variables
 void save_vars_to_temp() {
-    #ifdef _WIN32
-    const char* tempDir = getenv("TEMP");
-    if (!tempDir) tempDir = "C:\\Temp";
-    snprintf(tempVarPath, LYNX_MAX_PATH, "%s\\.lynx_vars.tmp", tempDir);
-    #else
-    snprintf(tempVarPath, LYNX_MAX_PATH, "/tmp/.lynx_vars.tmp");
-    #endif
-    
-    FILE* f = fopen(tempVarPath, "w");
-    if (!f) {
-        printf("🐾 Warning: Could not save variables to temp file\n");
-        return;
-    }
-    
-    fprintf(f, "%d\n", varCount);
-    for (int i = 0; i < varCount; i++) {
-        fprintf(f, "%s|%d|", den[i].name, den[i].type);
-        if (den[i].type == VAR_NUMBER) {
-            fprintf(f, "%f\n", den[i].value.numValue);
-        } else if (den[i].type == VAR_STRING && den[i].value.strValue) {
-            fprintf(f, "%s\n", den[i].value.strValue);
-        } else if (den[i].type == VAR_ARRAY) {
-            fprintf(f, "%d\n", den[i].array_length);
-            for (int j = 0; j < den[i].array_length; j++) {
-                if (den[i].value.array[j]) {
-                    fprintf(f, "%d|", j);
-                    if (den[i].value.array[j]->type == VAR_NUMBER) {
-                        fprintf(f, "num|%f\n", den[i].value.array[j]->value.numValue);
-                    } else if (den[i].value.array[j]->type == VAR_STRING) {
-                        fprintf(f, "str|%s\n", den[i].value.array[j]->value.strValue ? den[i].value.array[j]->value.strValue : "");
-                    }
-                }
-            }
-            fprintf(f, "ENDARRAY\n");
-        } else {
-            fprintf(f, "\n");
-        }
-    }
-    fclose(f);
+    printf("🐾 DEBUG: save_vars_to_temp() called - DISABLED\n");
+    return;
 }
 
 void load_vars_from_temp() {
-    FILE* f = fopen(tempVarPath, "r");
-    if (!f) {
-        return;
-    }
-    
-    for (int i = 0; i < varCount; i++) {
-        if (den[i].type == VAR_STRING && den[i].value.strValue) {
-            free(den[i].value.strValue);
-            den[i].value.strValue = NULL;
-        }
-        if (den[i].type == VAR_ARRAY && den[i].value.array) {
-            for (int j = 0; j < den[i].array_capacity; j++) {
-                if (den[i].value.array[j]) {
-                    if (den[i].value.array[j]->type == VAR_STRING && den[i].value.array[j]->value.strValue) {
-                        free(den[i].value.array[j]->value.strValue);
-                        den[i].value.array[j]->value.strValue = NULL;
-                    }
-                    free(den[i].value.array[j]);
-                    den[i].value.array[j] = NULL;
-                }
-            }
-            free(den[i].value.array);
-            den[i].value.array = NULL;
-        }
-    }
-    varCount = 0;
-    
-    char line[4096];
-    if (!fgets(line, sizeof(line), f)) {
-        fclose(f);
-        return;
-    }
-    int savedCount = atoi(line);
-    if (savedCount > MAX_VARS) savedCount = MAX_VARS;
-    
-    for (int i = 0; i < savedCount; i++) {
-        if (!fgets(line, sizeof(line), f)) break;
-        
-        char name[64];
-        int type;
-        if (sscanf(line, "%63[^|]|%d|", name, &type) != 2) {
-            continue;
-        }
-        
-        strncpy(den[varCount].name, name, VAR_NAME_MAX);
-        den[varCount].name[VAR_NAME_MAX] = '\0';
-        den[varCount].type = type;
-        den[varCount].value.strValue = NULL;
-        den[varCount].value.array = NULL;
-        den[varCount].array_length = 0;
-        den[varCount].array_capacity = 0;
-        
-        if (type == VAR_NUMBER) {
-            double val = 0;
-            char* p = strchr(line, '|');
-            if (p) {
-                p = strchr(p + 1, '|');
-                if (p) {
-                    val = atof(p + 1);
-                }
-            }
-            den[varCount].value.numValue = val;
-            varCount++;
-        } else if (type == VAR_STRING) {
-            char* val = strchr(line, '|');
-            if (val) {
-                val = strchr(val + 1, '|');
-                if (val) {
-                    val++;
-                    size_t len = strlen(val);
-                    if (len > 0 && val[len-1] == '\n') {
-                        val[len-1] = '\0';
-                        len--;
-                    }
-                    den[varCount].value.strValue = malloc(len + 1);
-                    if (den[varCount].value.strValue) {
-                        strcpy(den[varCount].value.strValue, val);
-                    }
-                    varCount++;
-                }
-            }
-        } else if (type == VAR_ARRAY) {
-            varCount++;
-        }
-    }
-    
-    fclose(f);
-    remove(tempVarPath);
+    printf("🐾 DEBUG: load_vars_from_temp() called - DISABLED\n");
+    return;
 }
 
 void clear_temp_vars() {
-    remove(tempVarPath);
+    printf("🐾 DEBUG: clear_temp_vars() called - DISABLED\n");
+    return;
 }
