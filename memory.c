@@ -106,6 +106,7 @@ void setVar(const char* name, double val) {
     }
 }
 
+// FIXED: setVarString - properly handles string assignment
 void setVarString(const char* name, const char* value) {
     if (!name || strlen(name) == 0 || strlen(name) > VAR_NAME_MAX) {
         printf("🐾 ERROR: setVarString called with invalid name\n");
@@ -136,24 +137,25 @@ void setVarString(const char* name, const char* value) {
             v->value.strValue = NULL;
         }
         
+        // Set type FIRST
+        v->type = VAR_STRING;
         v->value.strValue = malloc(strlen(value) + 1);
         if (v->value.strValue) {
             strcpy(v->value.strValue, value);
-            v->type = VAR_STRING;
         } else {
             printf("🐾 ERROR: Out of memory for string\n");
-            v->type = VAR_STRING;
             v->value.strValue = NULL;
         }
         v->array_length = 0;
         v->array_capacity = 0;
-        // FIXED: Removed v->value.array = NULL; - this was clobbering strValue
+        // DO NOT set v->value.array = NULL (union clobber bug)
         return;
     }
     
     if (varCount < MAX_VARS) {
         strncpy(den[varCount].name, name, VAR_NAME_MAX);
         den[varCount].name[VAR_NAME_MAX] = '\0';
+        // Set type FIRST
         den[varCount].type = VAR_STRING;
         den[varCount].value.strValue = malloc(strlen(value) + 1);
         if (den[varCount].value.strValue) {
@@ -473,7 +475,7 @@ int callFunction(const char* name) {
                     clearError();
                     break;
                 }
-                // FIXED: Check return flag after each statement
+                // Check return flag after each statement
                 if (lynx_return_flag) {
                     lynx_return_flag = 0;
                     recursionDepth--;
