@@ -718,13 +718,8 @@ int parse_logic_expression() {
     double left = parse_expression();
     if (lynx_error) return 0;
 
-    Token op = peekToken();
-    if (op.type == TOKEN_EQ || op.type == TOKEN_NE || 
-        op.type == TOKEN_GT || op.type == TOKEN_LT || 
-        op.type == TOKEN_GE || op.type == TOKEN_LE) {
-        scanToken();
-        double right = parse_expression();
-        if (lynx_error) return 0;
+    double right = parse_expression();
+    if (lynx_error) return 0;
 
         switch (op.type) {
             case TOKEN_EQ: return left == right;
@@ -1129,7 +1124,7 @@ void parse_statement() {
         Token semi = scanToken();
         if (semi.type != TOKEN_EOF) {
             // Semicolon is optional at end of file, but require it otherwise
-            if (semi.type != TOKEN_SEMICOLON) {
+            if (semi.type != TOKEN_SEMICOLON && semi.type != TOKEN_EOF) {
                 // Allow EOF after return
                 if (semi.type != TOKEN_EOF) {
                     setErrorF("Return expects ';' after expression");
