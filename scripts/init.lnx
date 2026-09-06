@@ -3,11 +3,11 @@ Roar "🐾 Initializing Lynx project..."
 Set projectName = __project_name
 Set author = __author
 
-If projectName == "" {
+If projectName = "" {
     Roar "❌ Usage: lynx init <project_name> [author]"
     Roar "⚠️ Project not created"
 } Else {
-    If author == "" {
+    If author = "" {
         Set author = "Unknown"
     }
 
