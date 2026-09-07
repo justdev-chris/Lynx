@@ -19,31 +19,19 @@ For i = 0 To count - 1 {
     Set key = __json_keys[i]
     Set value = __json_values[i]
     
-    # Look for package names (keys that contain "packages.")
-    KittyCheckIfStringContains key "packages."
+    # Look for package names (keys that end with .description or .latest)
+    KittyCheckIfStringContains key ".description"
     If __result == 1 {
-        # Extract package name from key (e.g., "packages.meowsys" → "meowsys")
-        KittySplitString key "."
-        If __result_count >= 2 {
-            Set pkgName = __result[1]
-            KittyCheckIfStringContains pkgName __term
-            If __result == 1 {
-                # Try to get the description
-                Set descKey = "packages." + pkgName + ".description"
-                Set desc = ""
-                For j = 0 To count - 1 {
-                    If __json_keys[j] == descKey {
-                        Set desc = __json_values[j]
-                        Break
-                    }
-                }
-                If Len(desc) > 0 {
-                    Roar "📦 " + pkgName + " - " + desc
-                } Else {
-                    Roar "📦 " + pkgName
-                }
-                Set found = found + 1
-            }
+        # Extract package name from key (e.g., "packages.meowsys.description" → "meowsys")
+        KittyReplaceString key ".description" ""
+        Set pkgKey = __result
+        KittyReplaceString pkgKey "packages." ""
+        Set pkgName = __result
+        
+        KittyCheckIfStringContains pkgName __term
+        If __result == 1 {
+            Roar "📦 " + pkgName + " - " + value
+            Set found = found + 1
         }
     }
 }
