@@ -1,9 +1,12 @@
 Roar "🐾 Updating packages..."
 
 Set tempDir = getenv("TEMP")
-Set jsonFile = tempDir + "\\packages.json"
+If tempDir == "" {
+    Set tempDir = "."
+}
+Set jsonFile = tempDir + "/packages.json"
 
-Run "curl -L -o " + jsonFile + " https://raw.githubusercontent.com/justdev-chris/lynx-registry/main/packages.json"
+Run "curl -L -o \"" + jsonFile + "\" https://raw.githubusercontent.com/justdev-chris/lynx-registry/main/packages.json"
 
 KittyReadFile jsonFile
 Set json = __file_content
@@ -11,13 +14,14 @@ Set json = __file_content
 KittyReadFile "lynx.toml"
 Set content = __file_content
 KittySplitString content "\n"
+Set lines = __result
 Set lines_count = __result_count
 Set in_deps = 0
 Set new_toml = ""
 Set updated = 0
 
 For i = 0 To lines_count - 1 {
-    Set line = __result[i]
+    Set line = lines[i]
 
     KittyCheckIfStringContains line "[dependencies]"
     If __result == 1 {
@@ -45,16 +49,17 @@ For i = 0 To lines_count - 1 {
             old_version = KittyReplaceString old_version "\"\""
 
             KittySplitString json "\n"
+            Set json_lines = __result
             Set json_lines_count = __result_count
             Set new_version = ""
 
             For j = 0 To json_lines_count - 1 {
-                Set jline = __result[j]
+                Set jline = json_lines[j]
                 KittyCheckIfStringContains jline ("\"" + pkg + "\"")
                 If __result == 1 {
                     For k = j To j + 10 {
                         If k < json_lines_count {
-                            Set vline = __result[k]
+                            Set vline = json_lines[k]
                             KittyCheckIfStringContains vline "version"
                             If __result == 1 {
                                 KittySplitString vline ":"
@@ -95,4 +100,4 @@ If updated > 0 {
     Roar "✅ All packages up to date"
 }
 
-Run "del /q " + jsonFile
+Run "del /q \"" + jsonFile + "\""
