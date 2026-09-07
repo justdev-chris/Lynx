@@ -61,6 +61,9 @@ typedef enum {
     TOKEN_TRIM,
     TOKEN_LEN,
 
+    // JSON parser
+    TOKEN_KITTY_PARSE_JSON,
+
     // Identifiers and Values
     TOKEN_IDENTIFIER, TOKEN_STRING, TOKEN_NUMBER,
 
