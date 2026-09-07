@@ -6,7 +6,7 @@ If tempDir == "" {
 }
 Set jsonFile = tempDir + "/packages.json"
 
-Run "curl -L -o packages.json https://raw.githubusercontent.com/TheLynxLang/lynx-registry/main/packages.json"
+Run "curl -L -o packages.json https://raw.githubusercontent.com/justdev-chris/lynx-registry/main/packages.json"
 
 KittyReadFile "packages.json"
 Set json = __file_content
