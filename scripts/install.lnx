@@ -2,14 +2,7 @@ Roar "🐾 Installing dependencies..."
 
 Paw "libs"
 
-Set userProfile = getenv("USERPROFILE")
-If userProfile == "" {
-    Set userProfile = getenv("HOME")
-}
-If userProfile == "" {
-    Set userProfile = "."
-}
-Set cacheDir = userProfile + "/.lynx/cache/"
+Set cacheDir = ".lynx/cache/"
 Paw cacheDir
 
 If KittyFileExists("lynx.lock") {
@@ -89,7 +82,7 @@ For i = 0 To lines_count - 1 {
 
             Roar "📦 Installing " + pkg + " (" + version + ")"
 
-            Set url = "https://raw.githubusercontent.com/justdev-chris/lynx-registry/main/packages/" + pkg + "/" + version + "/package.tar.gz"
+            Set url = "https://raw.githubusercontent.com/TheLynxLang/lynx-registry/main/packages/" + pkg + "/" + version + "/package.tar.gz"
             Set dest = "libs/" + pkg + ".tar.gz"
             Set cacheFile = cacheDir + pkg + "_" + version + ".tar.gz"
 
