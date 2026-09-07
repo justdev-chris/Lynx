@@ -3,7 +3,13 @@ Roar "🐾 Installing dependencies..."
 Paw "libs"
 
 Set userProfile = getenv("USERPROFILE")
-Set cacheDir = userProfile + "\\.lynx\\cache\\"
+If userProfile == "" {
+    Set userProfile = getenv("HOME")
+}
+If userProfile == "" {
+    Set userProfile = "."
+}
+Set cacheDir = userProfile + "/.lynx/cache/"
 Paw cacheDir
 
 If KittyFileExists("lynx.lock") {
@@ -25,21 +31,21 @@ If KittyFileExists("lynx.lock") {
             Roar "📦 Installing " + pkg + " (" + version + ")"
 
             Set url = "https://raw.githubusercontent.com/justdev-chris/lynx-registry/main/packages/" + pkg + "/" + version + "/package.tar.gz"
-            Set dest = "libs\\" + pkg + ".tar.gz"
+            Set dest = "libs/" + pkg + ".tar.gz"
             Set cacheFile = cacheDir + pkg + "_" + version + ".tar.gz"
 
             KittyFileExists cacheFile
             If __result == 1 {
                 Roar "💾 Using cached: " + pkg
-                Run "copy " + cacheFile + " " + dest
+                Run "cp " + cacheFile + " " + dest
             } Else {
                 Run "curl -L -o " + dest + " " + url
-                Run "copy " + dest + " " + cacheFile
+                Run "cp " + dest + " " + cacheFile
             }
 
-            Run "mkdir libs\\" + pkg + " 2>nul"
-            Run "tar -xzf " + dest + " -C libs\\" + pkg + "\\"
-            Run "del " + dest
+            Run "mkdir -p libs/" + pkg
+            Run "tar -xzf " + dest + " -C libs/" + pkg + "/"
+            Run "rm -f " + dest
 
             Roar "✅ Installed " + pkg
         }
@@ -84,21 +90,21 @@ For i = 0 To lines_count - 1 {
             Roar "📦 Installing " + pkg + " (" + version + ")"
 
             Set url = "https://raw.githubusercontent.com/justdev-chris/lynx-registry/main/packages/" + pkg + "/" + version + "/package.tar.gz"
-            Set dest = "libs\\" + pkg + ".tar.gz"
+            Set dest = "libs/" + pkg + ".tar.gz"
             Set cacheFile = cacheDir + pkg + "_" + version + ".tar.gz"
 
             KittyFileExists cacheFile
             If __result == 1 {
                 Roar "💾 Using cached: " + pkg
-                Run "copy " + cacheFile + " " + dest
+                Run "cp " + cacheFile + " " + dest
             } Else {
                 Run "curl -L -o " + dest + " " + url
-                Run "copy " + dest + " " + cacheFile
+                Run "cp " + dest + " " + cacheFile
             }
 
-            Run "mkdir libs\\" + pkg + " 2>nul"
-            Run "tar -xzf " + dest + " -C libs\\" + pkg + "\\"
-            Run "del " + dest
+            Run "mkdir -p libs/" + pkg
+            Run "tar -xzf " + dest + " -C libs/" + pkg + "/"
+            Run "rm -f " + dest
 
             Roar "✅ Installed " + pkg
 
