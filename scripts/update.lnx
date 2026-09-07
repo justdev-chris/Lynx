@@ -50,6 +50,9 @@ For i = 0 To lines_count - 1 {
             Set pkg = Trim(__result[0])
             Set old_version = Trim(__result[1])
             
+            # Copy pkg BEFORE calling KittySplitString again
+            Set pkgCopy = pkg
+            
             # Remove quotes from old_version
             KittySplitString old_version "\""
             If __result_count >= 2 {
@@ -58,7 +61,7 @@ For i = 0 To lines_count - 1 {
             
             # Find the package in the JSON using __json_keys and __json_values
             Set found_version = ""
-            Set latest_key = "packages." + pkg + ".latest"
+            Set latest_key = "packages." + pkgCopy + ".latest"
             
             For j = 0 To json_count - 1 {
                 If __json_keys[j] == latest_key {
@@ -68,11 +71,11 @@ For i = 0 To lines_count - 1 {
             }
 
             If Len(found_version) > 0 {
-                Roar "📦 Updating " + pkg + " (" + old_version + " → " + found_version + ")"
-                new_toml = new_toml + pkg + " = \"" + found_version + "\"\n"
+                Roar "📦 Updating " + pkgCopy + " (" + old_version + " → " + found_version + ")"
+                new_toml = new_toml + pkgCopy + " = \"" + found_version + "\"\n"
                 Set updated = updated + 1
             } Else {
-                Roar "⚠️ " + pkg + " not found in registry, keeping " + old_version
+                Roar "⚠️ " + pkgCopy + " not found in registry, keeping " + old_version
                 new_toml = new_toml + line + "\n"
             }
         }
