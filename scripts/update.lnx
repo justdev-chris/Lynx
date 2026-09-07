@@ -11,6 +11,9 @@ Run "curl -L -o packages.json https://raw.githubusercontent.com/justdev-chris/ly
 KittyReadFile "packages.json"
 Set json = __file_content
 
+KittyParseJSON json
+Set json_count = __json_count
+
 KittyReadFile "lynx.toml"
 Set content = __file_content
 KittySplitString content "\n"
@@ -48,37 +51,20 @@ For i = 0 To lines_count - 1 {
             Set old_version = Trim(__result[1])
             old_version = KittyReplaceString old_version "\"\""
 
-            KittySplitString json "\n"
-            Set json_lines = __result
-            Set json_lines_count = __result_count
-            Set new_version = ""
-
-            For j = 0 To json_lines_count - 1 {
-                Set jline = json_lines[j]
-                KittyCheckIfStringContains jline ("\"" + pkg + "\"")
-                If __result == 1 {
-                    For k = j To j + 10 {
-                        If k < json_lines_count {
-                            Set vline = json_lines[k]
-                            KittyCheckIfStringContains vline "version"
-                            If __result == 1 {
-                                KittySplitString vline ":"
-                                If __result_count >= 2 {
-                                    Set new_version = Trim(__result[1])
-                                    new_version = KittyReplaceString new_version "\"\""
-                                    new_version = KittyReplaceString new_version ","
-                                    Break
-                                }
-                            }
-                        }
-                    }
+            # Find the package in the JSON
+            Set found_version = ""
+            Set latest_key = "packages." + pkg + ".latest"
+            
+            For j = 0 To json_count - 1 {
+                If __json_keys[j] == latest_key {
+                    Set found_version = __json_values[j]
                     Break
                 }
             }
 
-            If Len(new_version) > 0 {
-                Roar "📦 Updating " + pkg + " (" + old_version + " → " + new_version + ")"
-                new_toml = new_toml + pkg + " = \"" + new_version + "\"\n"
+            If Len(found_version) > 0 {
+                Roar "📦 Updating " + pkg + " (" + old_version + " → " + found_version + ")"
+                new_toml = new_toml + pkg + " = \"" + found_version + "\"\n"
                 Set updated = updated + 1
             } Else {
                 Roar "⚠️ " + pkg + " not found in registry, keeping " + old_version
