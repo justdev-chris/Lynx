@@ -102,6 +102,7 @@ const char* tokenTypeToString(LynxTokenType type) {
         case TOKEN_STRING_REPLACE: return "KittyReplaceString";
         case TOKEN_TRIM: return "Trim";
         case TOKEN_LEN: return "Len";
+        case TOKEN_KITTY_PARSE_JSON: return "KittyParseJSON";
         case TOKEN_IDENTIFIER: return "identifier";
         case TOKEN_STRING: return "string literal";
         case TOKEN_NUMBER: return "number";
@@ -187,6 +188,7 @@ static LynxTokenType checkKeyword() {
     if (len == 18 && s[0] == 'K' && s[1] == 'i' && s[2] == 't' && s[3] == 't' && s[4] == 'y' && s[5] == 'R' && s[6] == 'e' && s[7] == 'p' && s[8] == 'l' && s[9] == 'a' && s[10] == 'c' && s[11] == 'e' && s[12] == 'S' && s[13] == 't' && s[14] == 'r' && s[15] == 'i' && s[16] == 'n' && s[17] == 'g') return TOKEN_STRING_REPLACE;
     if (len == 4 && s[0] == 'T' && s[1] == 'r' && s[2] == 'i' && s[3] == 'm') return TOKEN_TRIM;
     if (len == 3 && s[0] == 'L' && s[1] == 'e' && s[2] == 'n') return TOKEN_LEN;
+    if (len == 14 && s[0] == 'K' && s[1] == 'i' && s[2] == 't' && s[3] == 't' && s[4] == 'y' && s[5] == 'P' && s[6] == 'a' && s[7] == 'r' && s[8] == 's' && s[9] == 'e' && s[10] == 'J' && s[11] == 'S' && s[12] == 'O' && s[13] == 'N') return TOKEN_KITTY_PARSE_JSON;
 
     return TOKEN_IDENTIFIER;
 }
@@ -276,7 +278,7 @@ Token scanToken() {
         case ']': return makeToken(TOKEN_RBRACKET);
         case ',': return makeToken(TOKEN_COMMA);
         case ':': return makeToken(TOKEN_COLON);
-        case ';': return makeToken(TOKEN_SEMICOLON);  // FIXED: Added semicolon support
+        case ';': return makeToken(TOKEN_SEMICOLON);
         case '=':
             if (peek() == '=') { advance(); return makeToken(TOKEN_EQ); }
             return makeToken(TOKEN_EQUAL);
