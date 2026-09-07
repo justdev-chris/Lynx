@@ -6,9 +6,9 @@ If tempDir == "" {
 }
 Set jsonFile = tempDir + "/packages.json"
 
-Run "curl -L -o " + jsonFile + " https://raw.githubusercontent.com/justdev-chris/lynx-registry/main/packages.json"
+Run "curl -L -o packages.json https://raw.githubusercontent.com/TheLynxLang/lynx-registry/main/packages.json"
 
-KittyReadFile jsonFile
+KittyReadFile packages.json
 Set json = __file_content
 
 KittyReadFile "lynx.toml"
@@ -100,4 +100,4 @@ If updated > 0 {
     Roar "✅ All packages up to date"
 }
 
-Run "rm -f " + jsonFile
+Run "rm -f packages.json"
