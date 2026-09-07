@@ -15,17 +15,15 @@ KittyParseJSON json
 Set count = __json_count
 Set found = 0
 
+Set searchStr = "." + __term + "."
+
 For i = 0 To count - 1 {
     Set key = __json_keys[i]
     Set value = __json_values[i]
     
-    # Look for description keys
     KittyCheckIfStringContains key ".description"
     If __result == 1 {
-        # Extract package name manually by finding the part after "packages." and before ".description"
-        # We can use KittyReplaceString if it exists, but it doesn't
-        # So instead, just check if the key contains the search term
-        KittyCheckIfStringContains key ("." + __term + ".")
+        KittyCheckIfStringContains key searchStr
         If __result == 1 {
             Roar "📦 " + __term + " - " + value
             Set found = found + 1
