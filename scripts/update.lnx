@@ -51,7 +51,7 @@ For i = 0 To lines_count - 1 {
             Set old_version = Trim(__result[1])
             old_version = KittyReplaceString old_version "\"\""
 
-            # Find the package in the JSON
+            # Find the package in the JSON using __json_keys and __json_values
             Set found_version = ""
             Set latest_key = "packages." + pkg + ".latest"
             
