@@ -49,8 +49,13 @@ For i = 0 To lines_count - 1 {
         If __result_count >= 2 {
             Set pkg = Trim(__result[0])
             Set old_version = Trim(__result[1])
-            old_version = KittyReplaceString old_version "\"\""
-
+            
+            # Remove quotes from old_version
+            KittySplitString old_version "\""
+            If __result_count >= 2 {
+                Set old_version = __result[1]
+            }
+            
             # Find the package in the JSON using __json_keys and __json_values
             Set found_version = ""
             Set latest_key = "packages." + pkg + ".latest"
