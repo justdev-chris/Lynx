@@ -166,6 +166,223 @@ static char** split_string(const char* str, const char* delim, int* count) {
     return result;
 }
 
+// ─── JSON PARSER ────────────────────────────────────────────────
+typedef struct {
+    char** keys;
+    char** values;
+    int count;
+    int capacity;
+} JsonObject;
+
+static void json_object_init(JsonObject* obj) {
+    obj->keys = NULL;
+    obj->values = NULL;
+    obj->count = 0;
+    obj->capacity = 0;
+}
+
+static void json_object_add(JsonObject* obj, const char* key, const char* value) {
+    if (obj->count >= obj->capacity) {
+        obj->capacity = obj->capacity == 0 ? 16 : obj->capacity * 2;
+        obj->keys = realloc(obj->keys, obj->capacity * sizeof(char*));
+        obj->values = realloc(obj->values, obj->capacity * sizeof(char*));
+        if (!obj->keys || !obj->values) {
+            setErrorF("Out of memory parsing JSON");
+            return;
+        }
+    }
+    obj->keys[obj->count] = strdup(key);
+    obj->values[obj->count] = strdup(value);
+    obj->count++;
+}
+
+static void json_object_free(JsonObject* obj) {
+    for (int i = 0; i < obj->count; i++) {
+        free(obj->keys[i]);
+        free(obj->values[i]);
+    }
+    free(obj->keys);
+    free(obj->values);
+    obj->keys = NULL;
+    obj->values = NULL;
+    obj->count = 0;
+    obj->capacity = 0;
+}
+
+// Forward declaration
+static void json_parse_value(const char** json, JsonObject* obj, const char* parent_key);
+
+static char* json_parse_string(const char** json) {
+    const char* start = *json;
+    // Skip opening quote
+    if (**json == '"') (*json)++;
+    while (**json && **json != '"') {
+        if (**json == '\\') (*json)++; // skip escape char
+        (*json)++;
+    }
+    if (**json == '"') (*json)++; // skip closing quote
+    
+    int len = (int)(*json - start - 1);
+    if (len < 0) len = 0;
+    char* result = malloc(len + 1);
+    if (result) {
+        strncpy(result, start + 1, len);
+        result[len] = '\0';
+    }
+    return result;
+}
+
+static void json_parse_object(const char** json, JsonObject* obj, const char* parent_key) {
+    if (**json == '{') (*json)++;
+    
+    // Skip whitespace
+    while (**json && isspace(**json)) (*json)++;
+    
+    while (**json && **json != '}') {
+        // Parse key
+        char* key = json_parse_string(json);
+        
+        // Skip whitespace
+        while (**json && isspace(**json)) (*json)++;
+        
+        // Expect ':'
+        if (**json == ':') (*json)++;
+        
+        // Skip whitespace
+        while (**json && isspace(**json)) (*json)++;
+        
+        // Parse value
+        char full_key[256];
+        if (parent_key && parent_key[0] != '\0') {
+            snprintf(full_key, sizeof(full_key), "%s.%s", parent_key, key);
+        } else {
+            strncpy(full_key, key, sizeof(full_key) - 1);
+            full_key[sizeof(full_key) - 1] = '\0';
+        }
+        json_parse_value(json, obj, full_key);
+        free(key);
+        
+        // Skip whitespace
+        while (**json && isspace(**json)) (*json)++;
+        
+        // Expect ',' or '}'
+        if (**json == ',') {
+            (*json)++;
+            while (**json && isspace(**json)) (*json)++;
+        }
+    }
+    
+    if (**json == '}') (*json)++;
+}
+
+static void json_parse_array(const char** json, JsonObject* obj, const char* parent_key) {
+    if (**json == '[') (*json)++;
+    
+    // Skip whitespace
+    while (**json && isspace(**json)) (*json)++;
+    
+    int index = 0;
+    while (**json && **json != ']') {
+        char key[256];
+        snprintf(key, sizeof(key), "%s[%d]", parent_key ? parent_key : "", index);
+        json_parse_value(json, obj, key);
+        index++;
+        
+        // Skip whitespace
+        while (**json && isspace(**json)) (*json)++;
+        
+        if (**json == ',') {
+            (*json)++;
+            while (**json && isspace(**json)) (*json)++;
+        }
+    }
+    
+    if (**json == ']') (*json)++;
+}
+
+static void json_parse_value(const char** json, JsonObject* obj, const char* parent_key) {
+    // Skip whitespace
+    while (**json && isspace(**json)) (*json)++;
+    
+    if (**json == '"') {
+        char* value = json_parse_string(json);
+        json_object_add(obj, parent_key, value);
+        free(value);
+    } else if (**json == '{') {
+        json_parse_object(json, obj, parent_key);
+    } else if (**json == '[') {
+        json_parse_array(json, obj, parent_key);
+    } else if (**json == 't' && strncmp(*json, "true", 4) == 0) {
+        json_object_add(obj, parent_key, "true");
+        *json += 4;
+    } else if (**json == 'f' && strncmp(*json, "false", 5) == 0) {
+        json_object_add(obj, parent_key, "false");
+        *json += 5;
+    } else if (**json == 'n' && strncmp(*json, "null", 4) == 0) {
+        json_object_add(obj, parent_key, "null");
+        *json += 4;
+    } else {
+        // Number - read until non-digit or end of number
+        const char* start = *json;
+        while (**json && (isdigit(**json) || **json == '.' || **json == '-')) {
+            (*json)++;
+        }
+        int len = (int)(*json - start);
+        if (len > 0) {
+            char* value = malloc(len + 1);
+            if (value) {
+                strncpy(value, start, len);
+                value[len] = '\0';
+                json_object_add(obj, parent_key, value);
+                free(value);
+            }
+        }
+    }
+}
+
+static void kitty_parse_json() {
+    Token argToken = scanToken();
+    if (argToken.type != TOKEN_STRING && argToken.type != TOKEN_IDENTIFIER) {
+        setErrorF("KittyParseJSON expects string or variable");
+        return;
+    }
+    
+    char jsonStr[MAX_STRING];
+    if (argToken.type == TOKEN_STRING) {
+        unescape_string_token(argToken, jsonStr, sizeof(jsonStr));
+    } else {
+        char name[64];
+        snprintf(name, sizeof(name), "%.*s", argToken.length, argToken.start);
+        char* val = getVarString(name);
+        if (val) {
+            strncpy(jsonStr, val, sizeof(jsonStr) - 1);
+            jsonStr[sizeof(jsonStr) - 1] = '\0';
+        } else {
+            setErrorF("KittyParseJSON: variable '%s' is not a string", name);
+            return;
+        }
+    }
+    
+    JsonObject obj;
+    json_object_init(&obj);
+    
+    const char* json_ptr = jsonStr;
+    json_parse_value(&json_ptr, &obj, "");
+    
+    // Store results in variables
+    // __json_count = number of key-value pairs
+    // __json_keys = array of keys
+    // __json_values = array of values
+    
+    setVar("__json_count", (double)obj.count);
+    for (int i = 0; i < obj.count; i++) {
+        setArrayStringElement("__json_keys", i, obj.keys[i]);
+        setArrayStringElement("__json_values", i, obj.values[i]);
+    }
+    
+    json_object_free(&obj);
+}
+
 static void parse_array() {
     Token nameToken = scanToken();
     if (nameToken.type != TOKEN_IDENTIFIER) {
@@ -360,7 +577,8 @@ static int is_command_token(LynxTokenType type) {
            type == TOKEN_CONTINUE || type == TOKEN_KITTY_READ_DIR ||
            type == TOKEN_GET_ERROR || type == TOKEN_STRING_SPLIT ||
            type == TOKEN_STRING_CONTAINS || type == TOKEN_STRING_REPLACE ||
-           type == TOKEN_TRIM || type == TOKEN_LEN || type == TOKEN_ARGV;
+           type == TOKEN_TRIM || type == TOKEN_LEN || type == TOKEN_ARGV ||
+           type == TOKEN_KITTY_PARSE_JSON;
 }
 
 int pawcom_parse_statement(Token t) {
@@ -966,6 +1184,12 @@ int pawcom_parse_statement(Token t) {
         
         char* result = str_replace(src, oldStr, newStr);
         setVarString("__result", result);
+        return 1;
+    }
+
+    // ─── KITTY_PARSE_JSON ──────────────────────────────────────
+    if (t.type == TOKEN_KITTY_PARSE_JSON) {
+        kitty_parse_json();
         return 1;
     }
 
