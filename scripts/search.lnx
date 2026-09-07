@@ -6,7 +6,7 @@ If tempDir == "" {
 }
 Set jsonFile = tempDir + "/packages.json"
 
-Run "curl -L -o \"" + jsonFile + "\" https://raw.githubusercontent.com/justdev-chris/lynx-registry/main/packages.json"
+Run "curl -L -o " + jsonFile + " https://raw.githubusercontent.com/justdev-chris/lynx-registry/main/packages.json"
 
 KittyReadFile jsonFile
 Set json = __file_content
@@ -32,4 +32,4 @@ If count > 0 {
     Roar "❌ No results found for '" + __term + "'"
 }
 
-Run "del /q \"" + jsonFile + "\""
+Run "rm -f " + jsonFile
