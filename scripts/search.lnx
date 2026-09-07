@@ -11,23 +11,46 @@ Run "curl -L -o packages.json https://raw.githubusercontent.com/justdev-chris/ly
 KittyReadFile "packages.json"
 Set json = __file_content
 
-KittySplitString json "\n"
-Set lines = __result
-Set lines_count = __result_count
-Set count = 0
+KittyParseJSON json
+Set count = __json_count
+Set found = 0
 
-For i = 0 To lines_count - 1 {
-    Set line = lines[i]
-    KittyCheckIfStringContains line __term
+For i = 0 To count - 1 {
+    Set key = __json_keys[i]
+    Set value = __json_values[i]
+    
+    # Look for package names (keys that contain "packages.")
+    KittyCheckIfStringContains key "packages."
     If __result == 1 {
-        Roar "   " + Trim(line)
-        Set count = count + 1
+        # Extract package name from key (e.g., "packages.meowsys" → "meowsys")
+        KittySplitString key "."
+        If __result_count >= 2 {
+            Set pkgName = __result[1]
+            KittyCheckIfStringContains pkgName __term
+            If __result == 1 {
+                # Try to get the description
+                Set descKey = "packages." + pkgName + ".description"
+                Set desc = ""
+                For j = 0 To count - 1 {
+                    If __json_keys[j] == descKey {
+                        Set desc = __json_values[j]
+                        Break
+                    }
+                }
+                If Len(desc) > 0 {
+                    Roar "📦 " + pkgName + " - " + desc
+                } Else {
+                    Roar "📦 " + pkgName
+                }
+                Set found = found + 1
+            }
+        }
     }
 }
 
-If count > 0 {
+If found > 0 {
     Roar ""
-    Roar "📦 " + count + " result(s) found"
+    Roar "📦 " + found + " result(s) found"
 } Else {
     Roar "❌ No results found for '" + __term + "'"
 }
